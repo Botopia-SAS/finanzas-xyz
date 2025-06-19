@@ -1,11 +1,22 @@
 import { useState, useMemo } from "react";
-import { VerticalSchema, Movement, Vertical } from "../types/interfaces";
+import { VerticalSchema, Movement, Vertical, EggProductionHistory, CowProductionHistory } from "../types/interfaces";
 
 interface ProductionStats {
   totalProduction: number;
   totalRevenue: number;
   averagePrice: number;
 }
+
+// ✅ Definir tipos específicos para production_details
+interface ProductionDetail {
+  type_id: string;
+  type_name: string;
+  quantity: number;
+  unit_price: number;
+  total_value: number;
+}
+
+
 
 export function useProductionData(
   schema: VerticalSchema, 
@@ -26,12 +37,12 @@ export function useProductionData(
   const syntheticMovements = useMemo(() => {
     const synthetic: Movement[] = [];
     
-    // ✅ Para huevos - leer de eggProductionHistory
-    if (schema.type === 'eggs' && (schema as any).eggProductionHistory) {
-      const eggHistory = (schema as any).eggProductionHistory;
+    // ✅ Para huevos - leer de eggProductionHistory con tipos específicos
+    if (schema.type === 'eggs' && schema.eggProductionHistory) {
+      const eggHistory = schema.eggProductionHistory as EggProductionHistory[];
       console.log("🥚 Creating synthetic movements from eggProductionHistory:", eggHistory);
       
-      eggHistory.forEach((record: any) => {
+      eggHistory.forEach((record: EggProductionHistory) => {
         // Buscar el movimiento original
         const originalMovement = movements.find(m => m.id === record.movement_id);
         
@@ -41,7 +52,7 @@ export function useProductionData(
           
           // Si hay production_details, usar esos valores
           if (record.production_details && Array.isArray(record.production_details)) {
-            totalValue = record.production_details.reduce((sum: number, detail: any) => 
+            totalValue = record.production_details.reduce((sum: number, detail: ProductionDetail) => 
               sum + (detail.total_value || 0), 0
             );
           }
@@ -63,12 +74,12 @@ export function useProductionData(
       });
     }
     
-    // ✅ Para lechería - leer de cowProductionHistory
-    if (schema.type === 'dairy' && (schema as any).cowProductionHistory) {
-      const dairyHistory = (schema as any).cowProductionHistory;
+    // ✅ Para lechería - leer de cowProductionHistory con tipos específicos
+    if (schema.type === 'dairy' && schema.cowProductionHistory) {
+      const dairyHistory = schema.cowProductionHistory as CowProductionHistory[];
       console.log("🥛 Creating synthetic movements from cowProductionHistory:", dairyHistory);
       
-      dairyHistory.forEach((record: any) => {
+      dairyHistory.forEach((record: CowProductionHistory) => {
         // Buscar el movimiento original
         const originalMovement = movements.find(m => m.id === record.movement_id);
         

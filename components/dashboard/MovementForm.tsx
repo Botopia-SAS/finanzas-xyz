@@ -8,6 +8,28 @@ import EggsProductionForm, {
   TypeProduction
 } from "./vertical-templates/EggsProductionForm";
 
+// ✅ Definir interfaces tipadas localmente
+interface CowProductionHistory {
+  date: string;
+  movement_id: string;
+  total_liters: number;
+  production: CowProductionEntry[];
+}
+
+interface EggProductionHistory {
+  date: string;
+  movement_id: string;
+  total_eggs: number;
+  production_details?: {
+    type_id: string;
+    type_name: string;
+    quantity: number;
+    unit_price: number;
+    total_value: number;
+  }[];
+  production: Record<string, number>;
+}
+
 // Interfaces existentes...
 interface InventoryItem {
   id: string;
@@ -30,7 +52,13 @@ interface TemplateConfig {
   productionFrequency?: string;
   lastUpdated?: string;
   version?: string;
-  customFields?: Record<string, any>;
+  // ✅ Cambiar any por un tipo más específico
+  customFields?: Record<string, string | number | boolean | null>;
+  milkingTimes?: number;
+  qualityControl?: boolean;
+  qualityMetrics?: boolean;
+  eggGradingEnabled?: boolean;
+  collectionFrequency?: string;
 }
 
 interface VerticalSchema {
@@ -43,6 +71,9 @@ interface VerticalSchema {
   };
   productionTypes?: ProductionType[];
   templateConfig?: TemplateConfig;
+  // ✅ Agregar historiales tipados
+  cowProductionHistory?: CowProductionHistory[];
+  eggProductionHistory?: EggProductionHistory[];
 }
 
 interface Vertical {
@@ -73,7 +104,14 @@ interface Movement {
   amount: number;
   description?: string;
   vertical_id?: string;
-  production_data?: any;
+  // ✅ Tipar production_data correctamente
+  production_data?: {
+    total_eggs?: number;
+    total_liters?: number;
+    total_value?: number;
+    by_type?: Record<string, number>;
+    by_animal?: CowProductionEntry[];
+  };
 }
 
 interface MovementFormProps {
@@ -271,7 +309,8 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
           .single();
 
         if (vertical) {
-          let updatedSchema = { ...vertical.variables_schema };
+          // ✅ Usar const en lugar de let ya que se reasigna el objeto completo
+          const updatedSchema = { ...vertical.variables_schema };
           const productionTotal = chosen?.variables_schema.type === "eggs" 
             ? productionData.total_eggs || qty
             : productionData.total_liters || qty;
@@ -281,19 +320,23 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
               updatedSchema.cowProductionHistory = [];
             }
 
-            updatedSchema.cowProductionHistory.push({
+            // ✅ Crear objeto tipado para cowProductionHistory
+            const cowHistoryEntry: CowProductionHistory = {
               date,
               movement_id: movementResult.id,
               total_liters: productionTotal,
               production: productionData.by_animal || []
-            });
+            };
+
+            updatedSchema.cowProductionHistory.push(cowHistoryEntry);
 
           } else if (chosen?.variables_schema.type === "eggs") {
             if (!updatedSchema.eggProductionHistory) {
               updatedSchema.eggProductionHistory = [];
             }
 
-            updatedSchema.eggProductionHistory.push({
+            // ✅ Crear objeto tipado para eggProductionHistory
+            const eggHistoryEntry: EggProductionHistory = {
               date,
               movement_id: movementResult.id,
               total_eggs: productionTotal,
@@ -306,8 +349,10 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
                     total_value: tp.count * tp.price
                   }))
                 : undefined,
-              production: productionData.by_type
-            });
+              production: productionData.by_type as Record<string, number> || {}
+            };
+
+            updatedSchema.eggProductionHistory.push(eggHistoryEntry);
           }
 
           const { error: updateError } = await supabase
@@ -425,12 +470,12 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
             <option value="equipamiento">Equipamiento y Herramientas</option>
             <option value="otros">Otros</option>
           </select>
-          {/* ✅ Preview de cómo se guardará */}
+          {/* ✅ Preview de cómo se guardará - Escapar comillas */}
           {expenseCategory && (
             <div className="mt-2 p-2 bg-blue-50 rounded border text-sm">
               <span className="text-blue-600 font-medium">Se guardará como:</span>
               <div className="text-gray-800 mt-1">
-                "[{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}] Gasto registrado el {new Date().toLocaleDateString('es-ES')}"
+                &quot;[{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}] Gasto registrado el {new Date().toLocaleDateString('es-ES')}&quot;
                 {selV && ` - ${chosen?.name}`}
               </div>
             </div>
@@ -477,33 +522,33 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
 
       {/* ✅ Mostrar el total calculado */}
       <div className={`p-3 rounded border ${
-  movementType === "ingreso" 
-    ? "bg-green-50 border-green-200" 
-    : "bg-red-50 border-red-200"
-}`}>
-  <div className="flex justify-between items-center">
-    <span className={`font-medium ${
-      movementType === "ingreso" ? "text-green-700" : "text-red-700"
-    }`}>
-      Total {movementType === "ingreso" ? "Ingreso" : "Gasto"}:
-    </span>
-    <span className={`text-xl font-bold ${
-      movementType === "ingreso" ? "text-green-800" : "text-red-800"
-    }`}>
-      ${Math.abs(amount).toFixed(2)}
-    </span>
-  </div>
-  {selV && (
-    <p className="text-xs text-gray-600 mt-1">
-      Relacionado con: <strong>{chosen?.name}</strong>
-    </p>
-  )}
-  {movementType === "gasto" && expenseCategory && (
-    <p className="text-xs text-gray-600 mt-1">
-      Categoría: <strong>{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}</strong>
-    </p>
-  )}
-</div>
+        movementType === "ingreso" 
+          ? "bg-green-50 border-green-200" 
+          : "bg-red-50 border-red-200"
+      }`}>
+        <div className="flex justify-between items-center">
+          <span className={`font-medium ${
+            movementType === "ingreso" ? "text-green-700" : "text-red-700"
+          }`}>
+            Total {movementType === "ingreso" ? "Ingreso" : "Gasto"}:
+          </span>
+          <span className={`text-xl font-bold ${
+            movementType === "ingreso" ? "text-green-800" : "text-red-800"
+          }`}>
+            ${Math.abs(amount).toFixed(2)}
+          </span>
+        </div>
+        {selV && (
+          <p className="text-xs text-gray-600 mt-1">
+            Relacionado con: <strong>{chosen?.name}</strong>
+          </p>
+        )}
+        {movementType === "gasto" && expenseCategory && (
+          <p className="text-xs text-gray-600 mt-1">
+            Categoría: <strong>{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}</strong>
+          </p>
+        )}
+      </div>
 
       <button
         type="submit"

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { VerticalSchema, Vertical, Movement } from "../types/interfaces";
 import ProductionChart from "../components/ProductionChart";
 import ProductionFilters from "../components/ProductionFilters";

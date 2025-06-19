@@ -53,7 +53,7 @@ export default function EggsEditor({ schema, onChange }: EggsEditorProps) {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={schema.templateConfig.trackByType}
+                  checked={schema.templateConfig?.trackByType || false}
                   onChange={(e) =>
                     onChange({
                       ...schema,
@@ -72,7 +72,7 @@ export default function EggsEditor({ schema, onChange }: EggsEditorProps) {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={schema.templateConfig.eggGradingEnabled}
+                  checked={schema.templateConfig?.eggGradingEnabled || false}
                   onChange={(e) =>
                     onChange({
                       ...schema,
@@ -90,7 +90,7 @@ export default function EggsEditor({ schema, onChange }: EggsEditorProps) {
             <div>
               <label className="block text-sm font-medium mb-1">Frecuencia de recolección</label>
               <select
-                value={schema.templateConfig.collectionFrequency}
+                value={schema.templateConfig?.collectionFrequency || "daily"}
                 onChange={(e) =>
                   onChange({
                     ...schema,
@@ -112,7 +112,7 @@ export default function EggsEditor({ schema, onChange }: EggsEditorProps) {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={schema.templateConfig.qualityControl}
+                  checked={schema.templateConfig?.qualityControl || false}
                   onChange={(e) =>
                     onChange({
                       ...schema,

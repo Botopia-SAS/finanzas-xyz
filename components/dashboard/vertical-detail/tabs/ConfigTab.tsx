@@ -336,25 +336,25 @@ function DairyReadOnlyView({ schema }: { schema: DairySchema }) {
           <div>
             <span className="text-gray-600">Seguimiento individual:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.trackIndividualProduction ? 'Activado' : 'Desactivado'}
+              {schema.templateConfig?.trackIndividualProduction ? 'Activado' : 'Desactivado'}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Frecuencia:</span>
             <span className="ml-2 font-medium capitalize">
-              {schema.templateConfig.productionFrequency || 'Diaria'}
+              {schema.templateConfig?.productionFrequency || 'Diaria'}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Ordeños por día:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.milkingTimes || 2}
+              {schema.templateConfig?.milkingTimes || 2}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Métricas de calidad:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.qualityMetrics ? 'Activadas' : 'Desactivadas'}
+              {schema.templateConfig?.qualityMetrics ? 'Activadas' : 'Desactivadas'}
             </span>
           </div>
         </div>
@@ -437,25 +437,25 @@ function EggsReadOnlyView({ schema }: { schema: EggSchema }) {
           <div>
             <span className="text-gray-600">Seguimiento por tipo:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.trackByType ? 'Activado' : 'Desactivado'}
+              {schema.templateConfig?.trackByType ? 'Activado' : 'Desactivado'}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Clasificación:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.eggGradingEnabled ? 'Activada' : 'Desactivada'}
+              {schema.templateConfig?.eggGradingEnabled ? 'Activada' : 'Desactivada'}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Frecuencia de recolección:</span>
             <span className="ml-2 font-medium capitalize">
-              {schema.templateConfig.collectionFrequency || 'Diaria'}
+              {schema.templateConfig?.collectionFrequency || 'Diaria'}
             </span>
           </div>
           <div>
             <span className="text-gray-600">Control de calidad:</span>
             <span className="ml-2 font-medium">
-              {schema.templateConfig.qualityControl ? 'Activado' : 'Desactivado'}
+              {schema.templateConfig?.qualityControl ? 'Activado' : 'Desactivado'}
             </span>
           </div>
         </div>

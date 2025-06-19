@@ -44,7 +44,7 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={schema.templateConfig.trackIndividualProduction}
+                  checked={schema.templateConfig?.trackIndividualProduction || false}
                   onChange={(e) => onChange({
                     ...schema,
                     templateConfig: {
@@ -60,7 +60,7 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
             <div>
               <label className="block text-sm font-medium mb-1">Frecuencia de producción</label>
               <select
-                value={schema.templateConfig.productionFrequency}
+                value={schema.templateConfig?.productionFrequency || 'daily'}
                 onChange={(e) => onChange({
                   ...schema,
                   templateConfig: {
@@ -80,7 +80,7 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
               <label className="block text-sm font-medium mb-1">Ordeños por día</label>
               <input
                 type="number"
-                value={schema.templateConfig.milkingTimes}
+                value={schema.templateConfig?.milkingTimes || 2}
                 onChange={(e) => onChange({
                   ...schema,
                   templateConfig: {
@@ -98,7 +98,7 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
               <label className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={schema.templateConfig.qualityMetrics}
+                  checked={schema.templateConfig?.qualityMetrics || false}
                   onChange={(e) => onChange({
                     ...schema,
                     templateConfig: {

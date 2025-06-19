@@ -27,18 +27,20 @@ export interface CowProductionHistory {
   production: CowProductionEntry[];
 }
 
+export interface ProductionDetail {
+  type_id: string;
+  type_name: string;
+  quantity: number;
+  unit_price: number;
+  total_value: number;
+}
+
 export interface EggProductionHistory {
   date: string;
   movement_id: string; // ✅ Hacer obligatorio, no opcional
   total_eggs: number;
   production: Record<string, number>;
-  production_details?: Array<{
-    type_id: string;
-    type_name: string;
-    quantity: number;
-    unit_price: number;
-    total_value: number;
-  }>;
+  production_details?: ProductionDetail[];
 }
 
 // Configuración base del template
@@ -91,7 +93,8 @@ export interface VerticalSchema {
     productionFrequency?: string;
     lastUpdated?: string;
     version?: string;
-    customFields?: Record<string, any>;
+    // ✅ Cambiar any por un tipo más específico
+    customFields?: Record<string, string | number | boolean | null>;
     milkingTimes?: number;
     qualityControl?: boolean;
     qualityMetrics?: boolean;
