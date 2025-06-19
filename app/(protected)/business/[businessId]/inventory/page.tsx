@@ -6,15 +6,13 @@ import BackButton from "@/components/BackButton";
 
 export default async function InventoryPage({
   params,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  searchParams,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  params: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  searchParams: any;
+  params: Promise<{ businessId: string; }>; // ✅ Solo params necesario
+  // ✅ Removido searchParams ya que no se usa
 }) {
-  const businessId = params.businessId as string;
+  // ✅ Solo await params
+  const { businessId } = await params;
+  // ✅ Removido resolvedSearchParams
   
   const supabase = await createClient();
   const { data: inventoryItems } = await supabase
