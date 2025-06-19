@@ -163,3 +163,29 @@ export interface Vertical {
   created_at?: string;
   description?: string;
 }
+
+// Agregar estas interfaces si no existen:
+
+export interface CowStats {
+  id: string;
+  name: string;
+  records: Array<{
+    date: string;
+    liters: number;
+  }>;
+  avgProduction: number;
+  lastProduction: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  inProduction: boolean;
+  comments?: string;
+}
+
+export interface CowData {
+  id: string;
+  name: string;
+  production_average?: number;
+  last_production?: number;
+  trend?: string;
+  status?: string;
+  comments?: string;
+}

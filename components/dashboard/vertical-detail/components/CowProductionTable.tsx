@@ -14,7 +14,7 @@ export default function CowProductionTable({ schema, vertical }: CowProductionTa
     cowStats,
     handleCowClick,
     handleUpdateCow,
-    closeCowModal
+    closeCowModal // ✅ Ahora debería estar disponible
   } = useCowAnalysis(schema);
 
   return (
@@ -103,7 +103,7 @@ export default function CowProductionTable({ schema, vertical }: CowProductionTa
       {selectedCow && (
         <CowAnalysisModal
           isOpen={showCowModal}
-          onClose={closeCowModal}
+          onClose={closeCowModal} // ✅ Ahora funcionará correctamente
           cow={selectedCow}
           verticalId={vertical.id}
           onUpdateCow={handleUpdateCow}

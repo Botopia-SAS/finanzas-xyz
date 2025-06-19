@@ -47,33 +47,28 @@ export const useCowAnalysis = (schema: VerticalSchema) => {
           
           cowStatsMap.set(cow.id, { 
             id: cow.id,
-            name: cow.name || cowInfo.name, 
-            inProduction: cowInfo.inProduction !== false,
-            totalLiters: 0, 
-            count: 0,
+            name: cow.name,
             records: [],
             avgProduction: 0,
             lastProduction: 0,
-            trend: 'stable',
+            trend: 'stable' as const,
+            inProduction: cowInfo.inProduction !== false,
             comments: cowInfo.comments || ""
           });
         }
         
-        const stats = cowStatsMap.get(cow.id)!;
-        stats.totalLiters += Number(cow.liters || 0);
-        stats.count++;
-        stats.records.push({
-          id: `${record.date}-${cow.id}`,
+        cowStatsMap.get(cow.id)!.records.push({
           date: record.date,
-          liters: Number(cow.liters || 0)
+          liters: cow.liters
         });
       });
     });
     
     return Array.from(cowStatsMap.values())
-      .map(cow => ({
+      .map((cow) => ({
         ...cow,
-        avgProduction: cow.count > 0 ? cow.totalLiters / cow.count : 0,
+        avgProduction: cow.records.length > 0 ? 
+          cow.records.reduce((sum, r) => sum + r.liters, 0) / cow.records.length : 0,
         lastProduction: cow.records.length > 0 ? 
           cow.records.sort((a, b) => 
             new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -101,8 +96,12 @@ export const useCowAnalysis = (schema: VerticalSchema) => {
 
   const handleUpdateCow = (cowId: string, updates: Partial<CowData>) => {
     console.log("Actualizando vaca:", cowId, updates);
+    if (selectedCow && selectedCow.id === cowId) {
+      setSelectedCow(prev => prev ? { ...prev, ...updates } : null);
+    }
   };
 
+  // ✅ Agregar función para cerrar modal
   const closeCowModal = () => {
     setShowCowModal(false);
     setSelectedCow(null);
@@ -114,6 +113,6 @@ export const useCowAnalysis = (schema: VerticalSchema) => {
     cowStats,
     handleCowClick,
     handleUpdateCow,
-    closeCowModal
+    closeCowModal // ✅ Exportar la función
   };
 };

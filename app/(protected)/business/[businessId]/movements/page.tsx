@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation"; // Eliminamos router ya que no se usa
+import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import BackButton from "@/components/BackButton";
 import Modal from "@/components/dashboard/Modal";
 import MovementForm from "@/components/dashboard/MovementForm";
 import { Pencil, Trash2, Filter, X } from "lucide-react";
 
+// ✅ Interface actualizada para coincidir con la base de datos y MovementForm
 interface Movement {
-  id: string;
+  id: string; // ✅ Siempre string, no opcional
   date: string;
   type: "ingreso" | "gasto";
   amount: number;
-  vertical_id: string | null;
+  vertical_id?: string; // ✅ Changed to match MovementForm interface
   vertical?: { name: string } | null;
   description?: string;
+  business_id?: string;
+  created_at?: string;
 }
 
 interface Vertical {
@@ -23,9 +26,33 @@ interface Vertical {
   name: string;
 }
 
+// ✅ Definir tipo para datos sin validar que vienen de Supabase
+interface UnvalidatedMovement {
+  id?: string | null;
+  date?: string;
+  type?: string;
+  amount?: number;
+  vertical_id?: string | null;
+  vertical?: { name: string } | null;
+  description?: string | null;
+  business_id?: string;
+  created_at?: string;
+}
+
+// ✅ Type guard mejorado con tipo específico
+function isValidMovement(movement: UnvalidatedMovement): movement is Movement {
+  return !!(
+    movement && 
+    typeof movement.id === 'string' && 
+    movement.id.length > 0 &&
+    typeof movement.date === 'string' &&
+    (movement.type === 'ingreso' || movement.type === 'gasto') &&
+    typeof movement.amount === 'number'
+  );
+}
+
 export default function MovementsPage() {
   const { businessId } = useParams();
-  // Eliminamos router ya que no se usa
   
   const [movements, setMovements] = useState<Movement[]>([]);
   const [verticals, setVerticals] = useState<Vertical[]>([]);
@@ -40,7 +67,7 @@ export default function MovementsPage() {
     to: new Date().toISOString().slice(0, 10)
   });
 
-  // Función para cargar movimientos (ahora con useCallback para evitar dependencias cíclicas)
+  // Función para cargar movimientos
   const loadMovements = useCallback(async () => {
     if (!businessId) return;
     
@@ -85,7 +112,9 @@ export default function MovementsPage() {
     if (error) {
       console.error("Error cargando movimientos:", error);
     } else {
-      setMovements(data || []);
+      // ✅ Filtrar solo movimientos válidos con id usando el tipo específico
+      const validMovements = (data as UnvalidatedMovement[] || []).filter(isValidMovement);
+      setMovements(validMovements);
     }
     
     setLoading(false);
@@ -94,7 +123,7 @@ export default function MovementsPage() {
   // Cargar movimientos iniciales y cuando cambien los filtros
   useEffect(() => {
     loadMovements();
-  }, [loadMovements]); // Ahora loadMovements está incluido como dependencia
+  }, [loadMovements]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Estás seguro de eliminar este movimiento?")) return;
@@ -361,13 +390,6 @@ export default function MovementsPage() {
                         <span className="font-medium">{movement.vertical?.name || "Manual"}</span>
                       </div>
                       
-                      {/* Añadir la descripción */}
-                      {movement.description && (
-                        <div className="text-sm text-gray-700 mt-2">
-                          {movement.description}
-                        </div>
-                      )}
-                      
                       <div className="flex space-x-2">
                         <button 
                           onClick={() => setEditingMovement(movement)}
@@ -385,6 +407,13 @@ export default function MovementsPage() {
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Añadir la descripción */}
+                    {movement.description && (
+                      <div className="text-sm text-gray-700 mt-2">
+                        {movement.description}
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}
@@ -401,13 +430,18 @@ export default function MovementsPage() {
           onComplete={(newMovement) => {
             setAddModalOpen(false);
             
-            // Recargamos los datos para asegurarnos de tener todo actualizado
-            loadMovements();
-            
-            // Si el nuevo movimiento pasa los filtros, lo añadimos inmediatamente
-            // para una experiencia más fluida mientras se recarga
-            if (newMovement && passesFilters(newMovement)) {
-              setMovements(prev => [newMovement, ...prev]);
+            // ✅ Verificar que el movimiento es válido antes de usarlo
+            if (newMovement && isValidMovement(newMovement)) {
+              // Recargar todos los movimientos para mantener consistencia
+              loadMovements();
+              
+              // Si el nuevo movimiento pasa los filtros, lo añadimos para una experiencia más fluida mientras se recarga
+              if (passesFilters(newMovement)) {
+                setMovements(prev => [newMovement, ...prev]);
+              }
+            } else {
+              // Si no es válido, solo recargamos
+              loadMovements();
             }
           }} 
         />
@@ -423,16 +457,22 @@ export default function MovementsPage() {
             onComplete={(updatedMovement) => {
               setEditingMovement(null);
               
-              // Recargamos los datos para asegurarnos de tener todo actualizado
-              loadMovements();
-              
-              // Actualizamos inmediatamente el movimiento editado si pasa los filtros
-              if (updatedMovement && passesFilters(updatedMovement)) {
-                setMovements(prev => 
-                  prev.map(mov => 
-                    mov.id === updatedMovement.id ? updatedMovement : mov
-                  )
-                );
+              // ✅ Verificar que el movimiento es válido antes de usarlo
+              if (updatedMovement && isValidMovement(updatedMovement)) {
+                // Recargar todos los movimientos para mantener consistencia
+                loadMovements();
+                
+                // Actualizar inmediatamente el movimiento editado si pasa los filtros
+                if (passesFilters(updatedMovement)) {
+                  setMovements(prev => 
+                    prev.map(mov => 
+                      mov.id === updatedMovement.id ? updatedMovement : mov
+                    )
+                  );
+                }
+              } else {
+                // Si no es válido, solo recargamos
+                loadMovements();
               }
             }}
           />
