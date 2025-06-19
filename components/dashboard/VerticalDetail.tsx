@@ -42,7 +42,7 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
             qualityMetrics: false,
             ...baseSchema.templateConfig
           } as DairyTemplateConfig
-        };
+        } as VerticalSchema;
         setCurrentSchema(normalizedSchema);
       } else if (baseSchema.type === 'eggs') {
         const normalizedSchema = {
@@ -57,7 +57,7 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
             qualityControl: false,
             ...baseSchema.templateConfig
           } as EggTemplateConfig
-        };
+        } as VerticalSchema;
         setCurrentSchema(normalizedSchema);
       } else {
         setCurrentSchema(baseSchema);

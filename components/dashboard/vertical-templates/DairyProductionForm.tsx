@@ -1,17 +1,16 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export interface DairySchema {
   type: "dairy";
   unit: string;
   price: number;
   inventory: {
-    total: number;
     items: Array<{
       id: string;
       name: string;
-      notes?: string;
       inProduction?: boolean;
+      notes?: string;
     }>;
   };
   templateConfig: {
@@ -27,9 +26,10 @@ interface CowProduction {
 }
 
 interface DairyProductionData {
-  total_liters: number;
-  price_per_liter: number;
-  by_animal: CowProduction[];
+  by_animal?: CowProduction[];
+  total_liters?: number;
+  total_value?: number;
+  price_per_liter?: number;
 }
 
 interface DairyProductionFormProps {
@@ -48,23 +48,21 @@ export default function DairyProductionForm({
   const [totalLiters, setTotalLiters] = useState(defaultQuantity || 0);
   const [cowProduction, setCowProduction] = useState<Record<string, number>>({});
   
-  // Inicializa la producción por vaca cuando cambia el esquema
+  // ✅ Inicializar producción por vaca solo cuando cambia el número de vacas
   useEffect(() => {
     const initialCowProduction: Record<string, number> = {};
     schema.inventory.items.forEach(cow => {
       initialCowProduction[cow.id] = 0;
     });
     setCowProduction(initialCowProduction);
-  }, [schema.inventory.items]);
+  }, [schema.inventory.items.length]); // ✅ Solo depende de la longitud
   
-  // Actualiza la cantidad total y notifica al componente padre
-  useEffect(() => {
-    onQuantityChange(totalLiters);
-    
-    // Calcula y envía los datos de producción
-    const productionData: DairyProductionData = {
+  // ✅ Función memoizada para preparar datos de producción
+  const prepareProductionData = useCallback((): DairyProductionData => {
+    return {
       total_liters: totalLiters,
       price_per_liter: schema.price,
+      total_value: totalLiters * schema.price,
       by_animal: Object.keys(cowProduction).map(cowId => {
         const cow = schema.inventory.items.find(c => c.id === cowId);
         return {
@@ -74,9 +72,14 @@ export default function DairyProductionForm({
         };
       })
     };
-    
+  }, [totalLiters, cowProduction, schema.price, schema.inventory.items]);
+  
+  // ✅ Efecto con dependencias específicas y estables
+  useEffect(() => {
+    onQuantityChange(totalLiters);
+    const productionData = prepareProductionData();
     onDataChange(productionData);
-  }, [totalLiters, cowProduction, schema.price, schema.inventory.items, onQuantityChange, onDataChange]);
+  }, [totalLiters, prepareProductionData]); // ✅ Dependencias memoizadas
   
   // Actualiza la producción de una vaca específica
   const updateCowProduction = (cowId: string, liters: number) => {
@@ -111,7 +114,7 @@ export default function DairyProductionForm({
           <h3 className="text-sm font-medium mb-2">Producción por vaca</h3>
           <div className="space-y-2 max-h-40 overflow-y-auto p-1">
             {schema.inventory.items
-              .filter(cow => cow.inProduction !== false) // Solo mostrar vacas en producción
+              .filter(cow => cow.inProduction !== false)
               .map(cow => (
                 <div key={cow.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                   <span className="font-medium">{cow.name}</span>

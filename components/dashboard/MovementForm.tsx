@@ -1,44 +1,48 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import DairyProductionForm, { DairySchema } from "./vertical-templates/DairyProductionForm";
 import EggsProductionForm, { 
   EggsSchema, 
-  EggsProductionData,  // ← Importar desde EggsProductionForm
-  TypeProduction       // ← Importar desde EggsProductionForm
+  EggsProductionData,
+  TypeProduction
 } from "./vertical-templates/EggsProductionForm";
 
-// Definir interfaces para tipar correctamente
+// Interfaces existentes...
 interface InventoryItem {
   id: string;
   name: string;
   inProduction?: boolean;
-  [key: string]: unknown;
+  notes?: string;
 }
 
 interface ProductionType {
-  id: string; 
-  name: string; 
-  price: number; 
+  id: string;
+  name: string;
+  price: number;
+  active?: boolean;
   description?: string;
 }
 
 interface TemplateConfig {
+  trackByType?: boolean;
   trackIndividualProduction?: boolean;
   productionFrequency?: string;
-  trackByType?: boolean;
+  lastUpdated?: string;
+  version?: string;
+  customFields?: Record<string, any>;
 }
 
 interface VerticalSchema {
+  type: "dairy" | "eggs";
   unit: string;
   price: number;
-  type?: string;
-  inventory?: { 
-    total: number; 
-    items: InventoryItem[] 
+  inventory?: {
+    items?: InventoryItem[];
+    total?: number;
   };
-  templateConfig?: TemplateConfig;
   productionTypes?: ProductionType[];
+  templateConfig?: TemplateConfig;
 }
 
 interface Vertical {
@@ -54,45 +58,39 @@ interface CowProductionEntry {
 }
 
 interface ProductionData {
-  by_animal?: CowProductionEntry[];
-  by_type?: Record<string, number>;
   total_eggs?: number;
   total_liters?: number;
   total_value?: number;
-  [key: string]: unknown;
+  by_type?: Record<string, number> | TypeProduction[];
+  by_animal?: CowProductionEntry[];
+  price_per_liter?: number;
 }
 
 interface Movement {
-  id: string;
+  id?: string;
   date: string;
   type: "ingreso" | "gasto";
   amount: number;
-  vertical_id: string | null;
-  vertical?: { name: string } | null;
   description?: string;
+  vertical_id?: string;
+  production_data?: any;
 }
 
 interface MovementFormProps {
   businessId: string;
-  onComplete?: (newMovement?: Movement) => void;
-  movement?: {
-    id: string;
-    date: string;
-    type: "ingreso" | "gasto";
-    amount: number;
-    vertical_id: string | null;
-    description?: string;
-  };
+  onComplete?: (movement: Movement) => void;
+  movement?: Movement;
 }
 
 interface DairyProductionData {
-  by_animal?: CowProductionEntry[];
   total_liters?: number;
+  price_per_liter?: number;
   total_value?: number;
+  by_animal?: CowProductionEntry[];
 }
 
 export default function MovementForm({ businessId, onComplete, movement }: MovementFormProps) {
-  // Estado existente
+  // ✅ TODOS los hooks deben estar aquí, al nivel superior
   const [verticals, setVerticals] = useState<Vertical[]>([]);
   const [date, setDate] = useState(movement?.date || new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
@@ -102,50 +100,91 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
   const [selV, setSelV] = useState(movement?.vertical_id || "");
   const [movementType, setMovementType] = useState<"ingreso" | "gasto">(movement?.type || "ingreso");
   const [manualAmount, setManualAmount] = useState<number | "">(movement?.amount || 0);
-  
-  // Nuevo estado para el checkbox de registro de producción
   const [recordProduction, setRecordProduction] = useState(true);
+  const [expenseCategory, setExpenseCategory] = useState("");
 
-  // Carga verticals activas
+  // ✅ Mover handleEggsDataChange al nivel superior con useCallback
+  const handleEggsDataChange = useCallback((data: EggsProductionData) => {
+    console.log("Datos de huevos recibidos:", data);
+    
+    const converted: ProductionData = {
+      ...data,
+      total_value: data.total_value,
+      by_type: Array.isArray(data.by_type) 
+        ? Object.fromEntries(data.by_type.map((tp: TypeProduction) => [tp.id, tp.count])) 
+        : data.by_type
+    };
+    setProductionData(converted);
+  }, []);
+
+  // ✅ Mover handleDairyDataChange al nivel superior con useCallback
+  const handleDairyDataChange = useCallback((data: DairyProductionData) => {
+    console.log("Datos de lechería recibidos:", data);
+    
+    const converted: ProductionData = {
+      total_liters: data.total_liters,
+      total_value: data.total_value,
+      price_per_liter: data.price_per_liter,
+      by_animal: data.by_animal
+    };
+    setProductionData(converted);
+  }, []);
+
+  // ✅ Mover handleQuantityChange al nivel superior con useCallback
+  const handleQuantityChange = useCallback((newQty: number) => {
+    setQty(newQty);
+  }, []);
+
+  // useEffect para cargar verticales
   useEffect(() => {
-    async function load() {
-      if (!businessId) return;
+    const loadVerticals = async () => {
       const supabase = createClient();
       const { data } = await supabase
         .from("verticals")
-        .select("id, name, variables_schema")
+        .select("*")
         .eq("business_id", businessId)
         .eq("active", true);
-      setVerticals(data || []);
-
-      // Si estamos editando y hay vertical_id, calculamos la cantidad
-      if (movement?.vertical_id && data) {
-        const vertical = data.find((v) => v.id === movement.vertical_id);
-        if (vertical && vertical.variables_schema.price) {
-          setQty(movement.amount / vertical.variables_schema.price);
-        }
-      }
-    }
-    load();
-  }, [businessId, movement]);
+      
+      if (data) setVerticals(data);
+    };
+    
+    loadVerticals();
+  }, [businessId]);
 
   // Calcular monto basado en vertical seleccionada o monto manual
   const chosen = verticals.find((v) => v.id === selV);
   const pricePerUnit = chosen?.variables_schema.price ?? 0;
-  const computedAmount = chosen?.variables_schema.type === "eggs" 
-    ? (productionData?.total_value || 0) // Usar el valor calculado por tipo
-    : pricePerUnit * qty; // Para otros tipos
-  const amount = (selV && recordProduction && movementType === "ingreso") ? computedAmount : Number(manualAmount);
+
+  // ✅ Para huevos, usar el valor total calculado por el formulario
+  const computedAmount = (() => {
+    if (!chosen || !recordProduction || movementType !== "ingreso") {
+      return 0;
+    }
+    
+    if (chosen.variables_schema.type === "eggs") {
+      // ✅ Usar el valor total calculado que incluye precios específicos
+      return productionData?.total_value || 0;
+    } else if (chosen.variables_schema.type === "dairy") {
+      // Para lechería, usar precio por litro
+      return pricePerUnit * qty;
+    }
+    
+    // Para otros tipos genéricos
+    return pricePerUnit * qty;
+  })();
+
+  const amount = (selV && recordProduction && movementType === "ingreso") 
+    ? computedAmount 
+    : Number(manualAmount);
 
   // Cuando cambia el tipo de movimiento, resetear recordProduction
   useEffect(() => {
-    // Si cambia a gasto, forzamos a false el recordProduction
     if (movementType === "gasto") {
       setRecordProduction(false);
     }
   }, [movementType]);
 
-  // Función para renderizar el formulario de producción especializado
+  // ✅ Función para renderizar el formulario de producción - SIN useCallback interno
   const renderProductionForm = () => {
     if (!selV) return null;
 
@@ -155,202 +194,132 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
     const schema = selectedVertical.variables_schema;
 
     // Para tipo lechería
-    if (schema?.type === "dairy") {
-      const completeSchema: DairySchema = {
-        type: "dairy",
-        unit: schema.unit,
-        price: schema.price,
-        inventory: schema.inventory || { 
-          total: 0, 
-          items: [] 
-        },
-        templateConfig: {
-          trackIndividualProduction: schema.templateConfig?.trackIndividualProduction || false,
-          productionFrequency: schema.templateConfig?.productionFrequency || "daily"
-        }
-      };
-      
-      const handleDairyDataChange = (data: DairyProductionData) => {
-        // Convert DairyProductionData to ProductionData
-        setProductionData(data as ProductionData);
-      };
-
+    if (schema.type === "dairy") {
       return (
         <DairyProductionForm
-          schema={completeSchema}
+          schema={schema as DairySchema}
           defaultQuantity={qty}
-          onQuantityChange={setQty}
-          onDataChange={handleDairyDataChange}
+          onQuantityChange={handleQuantityChange} // ✅ Usar callback ya definido
+          onDataChange={handleDairyDataChange}    // ✅ Usar callback ya definido
         />
       );
     }
 
     // Para tipo huevos
-    if (schema?.type === "eggs") {
-      const completeSchema: EggsSchema = {
-        type: "eggs",
-        unit: schema.unit,
-        price: schema.price,
-        inventory: schema.inventory || { total: 0 },
-        productionTypes: schema.productionTypes || [],
-        templateConfig: {
-          trackByType: schema.templateConfig?.trackByType || false,
-          productionFrequency: schema.templateConfig?.productionFrequency || "daily"
-        }
-      };
-
-      const handleEggsDataChange = (data: EggsProductionData) => {
-        // Convert EggsProductionData to ProductionData
-        const converted: ProductionData = {
-          ...data,
-          by_type: Array.isArray(data.by_type) 
-            ? Object.fromEntries(data.by_type.map((tp: TypeProduction) => [tp.id, tp.count])) 
-            : data.by_type
-        };
-        setProductionData(converted);
-      };
-
+    if (schema.type === "eggs") {
       return (
         <EggsProductionForm
-          schema={completeSchema}
+          schema={schema as EggsSchema}
           defaultQuantity={qty}
-          onQuantityChange={setQty}
-          onDataChange={handleEggsDataChange}
+          onQuantityChange={handleQuantityChange} // ✅ Usar callback ya definido
+          onDataChange={handleEggsDataChange}     // ✅ Usar callback ya definido
         />
       );
     }
 
-    // Formulario genérico para otros tipos
-    return (
-      <div>
-        <label className="block text-sm font-medium mb-1">Cantidad</label>
-        <input
-          type="number"
-          value={qty}
-          onChange={(e) => setQty(+e.target.value)}
-          className="block w-full border rounded p-2"
-          min="0"
-          required
-        />
-      </div>
-    );
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const supabase = createClient();
-
+    
     try {
-      // 1. Crear el objeto para el movimiento (sin production_data)
-      const moveData = {
+      const supabase = createClient();
+      
+      // ✅ Generar descripción automática para gastos
+      const finalDescription = (() => {
+        if (movementType === "gasto" && expenseCategory) {
+          const categoryName = expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ');
+          const dateStr = new Date().toLocaleDateString('es-ES');
+          const verticalInfo = selV ? ` - ${chosen?.name}` : '';
+          
+          return `[${categoryName}] Gasto registrado el ${dateStr}${verticalInfo}`;
+        }
+        // Para ingresos, usar la descripción del usuario
+        return description || `Ingreso registrado el ${new Date().toLocaleDateString('es-ES')}`;
+      })();
+      
+      // ✅ Crear movimiento
+      const movementData = {
         business_id: businessId,
         vertical_id: selV || null,
         date,
-        type: movementType,
-        amount: amount,
-        description
-        // Ya no incluimos production_data aquí
+        type: movementType as "ingreso" | "gasto",
+        amount: movementType === "gasto" ? -Math.abs(amount) : Math.abs(amount),
+        description: finalDescription
       };
 
-      // 2. Guardar o actualizar el movimiento
-      let movementResult;
-      if (movement) {
-        const { data, error } = await supabase
-          .from('movements')
-          .update(moveData)
-          .eq('id', movement.id)
-          .select()
-          .single();
-          
-        if (error) throw error;
-        movementResult = data;
-      } else {
-        const { data, error } = await supabase
-          .from('movements')
-          .insert(moveData)
-          .select()
-          .single();
-          
-        if (error) throw error;
-        movementResult = data;
-      }
+      console.log("=== SAVING MOVEMENT DATA ===");
+      console.log("Movement data:", movementData);
+      console.log("Expense category:", expenseCategory);
 
-      // 3. Si hay datos de producción y seleccionamos una vertical, actualizamos esa vertical
-      if (selV && productionData && (chosen?.variables_schema.type === "dairy" || chosen?.variables_schema.type === "eggs")) {
-        // Calcular total para el tipo específico
-        let productionTotal = 0;
-        if (chosen?.variables_schema.type === "dairy" && productionData.by_animal) {
-          productionTotal = productionData.by_animal.reduce(
-            (sum: number, cow: CowProductionEntry) => sum + Number(cow.liters || 0),
-            0
-          );
-        } else if (chosen?.variables_schema.type === "eggs" && productionData.by_type) {
-          productionTotal = Object.values(productionData.by_type).reduce(
-            (sum: number, count: number) => sum + Number(count || 0),
-            0
-          );
-        }
+      const { data: movementResult, error: movementError } = await supabase
+        .from("movements")
+        .insert([movementData])
+        .select()
+        .single();
 
-        // Obtener el schema actual
-        const { data: currentVertical } = await supabase
+      if (movementError) throw movementError;
+
+      // ✅ Resto del código igual (producción, etc.)
+      if (selV && recordProduction && productionData) {
+        const { data: vertical } = await supabase
           .from('verticals')
           .select('variables_schema')
           .eq('id', selV)
           .single();
 
-        if (!currentVertical) throw new Error("No se encontró la vertical");
+        if (vertical) {
+          let updatedSchema = { ...vertical.variables_schema };
+          const productionTotal = chosen?.variables_schema.type === "eggs" 
+            ? productionData.total_eggs || qty
+            : productionData.total_liters || qty;
 
-        // Crear una copia del schema actual
-        const updatedSchema = { ...currentVertical.variables_schema };
+          if (chosen?.variables_schema.type === "dairy") {
+            if (!updatedSchema.cowProductionHistory) {
+              updatedSchema.cowProductionHistory = [];
+            }
 
-        // Agregar o inicializar el historial de producción según el tipo
-        if (chosen?.variables_schema.type === "dairy") {
-          // Para lechería - Agregar registro al historial de vacas
-          if (!updatedSchema.cowProductionHistory) {
-            updatedSchema.cowProductionHistory = [];
-          }
+            updatedSchema.cowProductionHistory.push({
+              date,
+              movement_id: movementResult.id,
+              total_liters: productionTotal,
+              production: productionData.by_animal || []
+            });
 
-          updatedSchema.cowProductionHistory.push({
-            date,
-            movement_id: movementResult.id,
-            total_liters: productionTotal,
-            production: productionData.by_animal
-          });
+          } else if (chosen?.variables_schema.type === "eggs") {
+            if (!updatedSchema.eggProductionHistory) {
+              updatedSchema.eggProductionHistory = [];
+            }
 
-          // Actualizar stats por vaca si es necesario
-          if (productionData.by_animal && updatedSchema.inventory && updatedSchema.inventory.items) {
-            productionData.by_animal.forEach((cowProd: CowProductionEntry) => {
-              const cowIndex = updatedSchema.inventory?.items.findIndex((cow: InventoryItem) => cow.id === cowProd.id);
-              if (cowIndex >= 0) {
-                // Podríamos actualizar estadísticas por vaca aquí si es necesario
-              }
+            updatedSchema.eggProductionHistory.push({
+              date,
+              movement_id: movementResult.id,
+              total_eggs: productionTotal,
+              production_details: productionData.by_type && Array.isArray(productionData.by_type) 
+                ? productionData.by_type.map((tp: TypeProduction) => ({
+                    type_id: tp.id,
+                    type_name: tp.name,
+                    quantity: tp.count,
+                    unit_price: tp.price,
+                    total_value: tp.count * tp.price
+                  }))
+                : undefined,
+              production: productionData.by_type
             });
           }
-        } else if (chosen?.variables_schema.type === "eggs") {
-          // Para huevos - Agregar registro al historial de producción
-          if (!updatedSchema.eggProductionHistory) {
-            updatedSchema.eggProductionHistory = [];
-          }
 
-          updatedSchema.eggProductionHistory.push({
-            date,
-            movement_id: movementResult.id,
-            total_eggs: productionTotal,
-            production: productionData.by_type
-          });
+          const { error: updateError } = await supabase
+            .from('verticals')
+            .update({ variables_schema: updatedSchema })
+            .eq('id', selV);
+
+          if (updateError) throw updateError;
         }
-
-        // Guardar el schema actualizado
-        const { error: updateError } = await supabase
-          .from('verticals')
-          .update({ variables_schema: updatedSchema })
-          .eq('id', selV);
-
-        if (updateError) throw updateError;
       }
 
-      // Si llegamos aquí, el movimiento se guardó correctamente
+      // Éxito
       onComplete?.({ 
         ...movementResult, 
         vertical: selV ? { name: chosen?.name } : null 
@@ -358,7 +327,6 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
       
     } catch (error) {
       console.error("Error al guardar el movimiento:", error);
-      // Usar type guard para acceder a la propiedad message de manera segura
       if (error instanceof Error) {
         alert(`Error al guardar el movimiento: ${error.message}`);
       } else {
@@ -396,33 +364,77 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
         </select>
       </div>
 
-      {/* Descripción */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Descripción</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descripción del movimiento"
-          className="block w-full border rounded p-2 h-24 resize-none"
-        />
-      </div>
-
-      {/* Select Vertical - Solo mostrar para ingresos */}
+      {/* ✅ Solo mostrar descripción para INGRESOS */}
       {movementType === "ingreso" && (
         <div>
-          <label className="block text-sm font-medium mb-1">Vertical</label>
+          <label className="block text-sm font-medium mb-1">Descripción</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descripción del movimiento"
+            className="block w-full border rounded p-2 h-24 resize-none"
+          />
+        </div>
+      )}
+
+      {/* ✅ Select Vertical - MOSTRAR SIEMPRE */}
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          {movementType === "ingreso" ? "Vertical (Producción)" : "Vertical (Relacionado)"}
+        </label>
+        <select
+          value={selV}
+          onChange={(e) => setSelV(e.target.value)}
+          className="block w-full border rounded p-2"
+        >
+          <option value="">
+            {movementType === "ingreso" ? "— Ingreso manual —" : "— Sin vertical específica —"}
+          </option>
+          {verticals.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name}
+            </option>
+          ))}
+        </select>
+        {movementType === "gasto" && (
+          <p className="text-xs text-gray-500 mt-1">
+            Opcional: Relaciona este gasto con una vertical específica para mejor seguimiento de costos.
+          </p>
+        )}
+      </div>
+
+      {/* ✅ Categoría de gasto - SOLO para gastos */}
+      {movementType === "gasto" && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Categoría de Gasto *</label>
           <select
-            value={selV}
-            onChange={(e) => setSelV(e.target.value)}
+            value={expenseCategory}
+            onChange={(e) => setExpenseCategory(e.target.value)}
             className="block w-full border rounded p-2"
+            required
           >
-            <option value="">— Ingreso manual —</option>
-            {verticals.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
+            <option value="">— Seleccionar categoría —</option>
+            <option value="alimentacion">Alimentación</option>
+            <option value="medicamentos">Medicamentos y Veterinaria</option>
+            <option value="mantenimiento">Mantenimiento y Reparaciones</option>
+            <option value="combustible">Combustible y Transporte</option>
+            <option value="suministros">Suministros y Materiales</option>
+            <option value="servicios">Servicios (Electricidad, Agua, etc.)</option>
+            <option value="mano_obra">Mano de Obra</option>
+            <option value="insumos">Insumos Agrícolas</option>
+            <option value="equipamiento">Equipamiento y Herramientas</option>
+            <option value="otros">Otros</option>
           </select>
+          {/* ✅ Preview de cómo se guardará */}
+          {expenseCategory && (
+            <div className="mt-2 p-2 bg-blue-50 rounded border text-sm">
+              <span className="text-blue-600 font-medium">Se guardará como:</span>
+              <div className="text-gray-800 mt-1">
+                "[{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}] Gasto registrado el {new Date().toLocaleDateString('es-ES')}"
+                {selV && ` - ${chosen?.name}`}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -453,28 +465,59 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
           </label>
           <input
             type="number"
-            min={0}
-            step="0.01"
             value={manualAmount}
-            onChange={(e) => setManualAmount(e.target.value === "" ? "" : +e.target.value)}
-            placeholder="Monto"
+            onChange={(e) => setManualAmount(e.target.value === "" ? "" : Number(e.target.value))}
             className="block w-full border rounded p-2"
+            min="0"
+            step="0.01"
             required
           />
         </div>
       )}
 
-      {/* Mostrar total */}
-      <div className="text-lg">
-        Total: <strong>${amount.toFixed(2)}</strong>
-      </div>
+      {/* ✅ Mostrar el total calculado */}
+      <div className={`p-3 rounded border ${
+  movementType === "ingreso" 
+    ? "bg-green-50 border-green-200" 
+    : "bg-red-50 border-red-200"
+}`}>
+  <div className="flex justify-between items-center">
+    <span className={`font-medium ${
+      movementType === "ingreso" ? "text-green-700" : "text-red-700"
+    }`}>
+      Total {movementType === "ingreso" ? "Ingreso" : "Gasto"}:
+    </span>
+    <span className={`text-xl font-bold ${
+      movementType === "ingreso" ? "text-green-800" : "text-red-800"
+    }`}>
+      ${Math.abs(amount).toFixed(2)}
+    </span>
+  </div>
+  {selV && (
+    <p className="text-xs text-gray-600 mt-1">
+      Relacionado con: <strong>{chosen?.name}</strong>
+    </p>
+  )}
+  {movementType === "gasto" && expenseCategory && (
+    <p className="text-xs text-gray-600 mt-1">
+      Categoría: <strong>{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}</strong>
+    </p>
+  )}
+</div>
 
       <button
         type="submit"
-        disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        disabled={loading || (movementType === "gasto" && !expenseCategory)}
+        className={`w-full py-2 rounded text-white ${
+          movementType === "ingreso" 
+            ? "bg-green-600 hover:bg-green-700 disabled:bg-green-300" 
+            : "bg-red-600 hover:bg-red-700 disabled:bg-red-300"
+        }`}
       >
-        {loading ? "Guardando…" : movement ? "Actualizar movimiento" : "+ Agregar movimiento"}
+        {loading ? "Guardando..." : 
+         (movementType === "gasto" && !expenseCategory) ? "Selecciona una categoría" :
+         `+ Agregar ${movementType}`
+        }
       </button>
     </form>
   );

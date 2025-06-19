@@ -14,15 +14,31 @@ export interface ProductionRecord {
   movement_id?: string;
 }
 
+export interface CowProductionEntry {
+  id: string;
+  name: string;
+  liters: number;
+}
+
 export interface CowProductionHistory {
   date: string;
+  movement_id: string; // ✅ Hacer obligatorio, no opcional
   total_liters: number;
-  production: Array<{
-    id: string;
-    name: string;
-    liters: number;
+  production: CowProductionEntry[];
+}
+
+export interface EggProductionHistory {
+  date: string;
+  movement_id: string; // ✅ Hacer obligatorio, no opcional
+  total_eggs: number;
+  production: Record<string, number>;
+  production_details?: Array<{
+    type_id: string;
+    type_name: string;
+    quantity: number;
+    unit_price: number;
+    total_value: number;
   }>;
-  movement_id?: string;
 }
 
 // Configuración base del template
@@ -48,84 +64,99 @@ export interface EggTemplateConfig extends BaseTemplateConfig {
   qualityControl?: boolean;
 }
 
-export interface DairySchema {
-  type: 'dairy';
-  price: number;
+export interface VerticalSchema {
+  type: "dairy" | "eggs";
   unit: string;
-  templateConfig: DairyTemplateConfig;
+  price: number;
   inventory?: {
-    items: CowInventoryItem[];
+    items?: Array<{
+      id: string;
+      name: string;
+      inProduction?: boolean;
+      notes?: string;
+      comments?: string;
+    }>;
+    total?: number;
   };
+  productionTypes?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    active?: boolean;
+    description?: string;
+  }>;
+  templateConfig?: {
+    trackByType?: boolean;
+    trackIndividualProduction?: boolean;
+    productionFrequency?: string;
+    lastUpdated?: string;
+    version?: string;
+    customFields?: Record<string, any>;
+    milkingTimes?: number;
+    qualityControl?: boolean;
+    qualityMetrics?: boolean;
+    eggGradingEnabled?: boolean;
+    collectionFrequency?: string;
+  };
+  // ✅ Usar las interfaces tipadas
+  eggProductionHistory?: EggProductionHistory[];
   cowProductionHistory?: CowProductionHistory[];
 }
 
-export interface EggProductionType {
-  id: string;
-  name: string;
-  price: number;
-  active: boolean;
-  description?: string;
-}
-
-export interface EggSchema {
-  type: 'eggs';
-  price: number;
-  unit: string;
-  templateConfig: EggTemplateConfig;
+export interface DairySchema extends VerticalSchema {
+  type: "dairy";
   inventory?: {
-    total: number;
+    items?: Array<{
+      id: string;
+      name: string;
+      inProduction?: boolean;
+      notes?: string;
+      comments?: string;
+    }>;
   };
-  productionTypes?: EggProductionType[];
-  eggProductionHistory?: Array<{
-    date: string;
-    total_eggs: number;
-    movement_id?: string;
+  cowProductionHistory?: CowProductionHistory[]; // ✅ Usar interface tipada
+}
+
+export interface EggSchema extends VerticalSchema {
+  type: "eggs";
+  inventory?: {
+    total?: number;
+  };
+  productionTypes?: Array<{
+    id: string;
+    name: string;
+    price: number;
+    active?: boolean;
+    description?: string;
   }>;
-}
-
-export type VerticalSchema = DairySchema | EggSchema;
-
-export interface Vertical {
-  id: string;
-  name: string;
-  description?: string;
-  variables_schema: VerticalSchema;
-}
-
-export interface MovementProductionData {
-  total_liters?: number;
-  total_eggs?: number;
+  eggProductionHistory?: EggProductionHistory[]; // ✅ Usar interface tipada
 }
 
 export interface Movement {
   id: string;
   date: string;
-  type: 'ingreso' | 'gasto';
+  type: "ingreso" | "gasto";
   amount: number;
-  vertical_id: string;
-  production_data?: MovementProductionData;
   description?: string;
+  vertical_id?: string;
+  business_id?: string;
+  created_at?: string;
+  production_data?: {
+    total_eggs?: number;
+    total_liters?: number;
+    total_value?: number;
+    by_type?: Record<string, number>;
+    by_animal?: CowProductionEntry[];
+  };
 }
 
-export interface CowStats {
+export interface Vertical {
   id: string;
   name: string;
-  inProduction: boolean;
-  totalLiters: number;
-  count: number;
-  records: ProductionRecord[];
-  avgProduction: number;
-  lastProduction: number;
-  trend: 'increasing' | 'decreasing' | 'stable';
-  comments?: string;
-}
-
-export interface CowData {
-  id: string;
-  name: string;
-  production_average?: number;
-  last_production?: number;
-  trend?: string;
-  status?: string;
-  comments?: string;
+  variables_schema: VerticalSchema;
+  business_id?: string;
+  active?: boolean;
+  is_template?: boolean;
+  created_at?: string;
+  description?: string;
 }

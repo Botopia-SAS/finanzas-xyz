@@ -64,11 +64,11 @@ export default function VerticalsList({ verticals, templates, businessId }: Vert
     if (schema?.type === "dairy") {
       return (
         <DairyEditor 
-          schema={schema} 
+          schema={schema as DairySchema} 
           onChange={(newSchema) => {
             setFormData({
               ...formData,
-              variables_schema: newSchema
+              variables_schema: newSchema as VerticalSchema
             });
           }}
         />
@@ -78,11 +78,11 @@ export default function VerticalsList({ verticals, templates, businessId }: Vert
     if (schema?.type === "eggs") {
       return (
         <EggsEditor 
-          schema={schema}
+          schema={schema as EggSchema}
           onChange={(newSchema) => {
             setFormData({
               ...formData,
-              variables_schema: newSchema
+              variables_schema: newSchema as VerticalSchema
             });
           }}
         />
@@ -159,20 +159,36 @@ export default function VerticalsList({ verticals, templates, businessId }: Vert
     const supabase = createClient();
     
     // ✅ Crear un schema básico tipado si no existe uno especializado
-    const variables_schema: VerticalSchema = formData.variables_schema || {
-      type: 'dairy', // Valor por defecto, se puede cambiar según necesidad
-      unit: formData.unit,
-      price: Number(formData.price),
-      templateConfig: {
-        lastUpdated: new Date().toISOString(),
-        version: "1.0.0",
-        customFields: {},
-        trackIndividualProduction: true,
-        productionFrequency: 'daily',
-        milkingTimes: 2,
-        qualityMetrics: false
-      }
-    } as DairySchema;
+    let variables_schema: VerticalSchema;
+    
+    if (formData.variables_schema) {
+      // Use existing schema and update basic properties
+      variables_schema = {
+        ...formData.variables_schema,
+        unit: formData.unit,
+        price: Number(formData.price)
+      };
+    } else {
+      // Create default dairy schema
+      variables_schema = {
+        type: 'dairy',
+        unit: formData.unit,
+        price: Number(formData.price),
+        templateConfig: {
+          lastUpdated: new Date().toISOString(),
+          version: "1.0.0",
+          customFields: {},
+          trackIndividualProduction: true,
+          productionFrequency: 'daily',
+          milkingTimes: 2,
+          qualityMetrics: false
+        },
+        inventory: {
+          items: []
+        },
+        cowProductionHistory: []
+      } as DairySchema;
+    }
     
     // Actualizar las propiedades básicas
     if (variables_schema) {
@@ -259,7 +275,7 @@ export default function VerticalsList({ verticals, templates, businessId }: Vert
           inventory: {
             items: [] // Inicializar con array vacío para nueva instancia
           },
-          cowProductionHistory: []
+          cowProductionHistory: [] as { date: string; movement_id: string; total_liters: number; production: { id: string; name: string; liters: number; }[]; }[]
         } as DairySchema;
         
       } else if (template.variables_schema.type === "eggs") {
@@ -283,7 +299,7 @@ export default function VerticalsList({ verticals, templates, businessId }: Vert
             total: 0 // Inicializar con 0 para nueva instancia
           },
           productionTypes: eggTemplate.productionTypes ? [...eggTemplate.productionTypes] : [],
-          eggProductionHistory: []
+          eggProductionHistory: [] // Initialize as empty array with correct type structure
         } as EggSchema;
         
       } else {
