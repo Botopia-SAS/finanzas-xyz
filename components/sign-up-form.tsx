@@ -28,14 +28,13 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
-  const [dialCode, setDialCode] = useState("+34");
+  const [dialCode, setDialCode] = useState("+57"); // ✅ Cambiar a Colombia por defecto
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPinPopup, setShowPinPopup] = useState(false);
   const [pinInput, setPinInput] = useState("");
   
-  // Guarda el PIN generado en un estado
   const [generatedPin, setGeneratedPin] = useState("");
   const router = useRouter();
 
@@ -52,17 +51,15 @@ export function SignUpForm({
     }
 
     try {
-      // 1. Genera el PIN
       const pin = generatePin();
       setGeneratedPin(pin);
 
-      // 2. Envía el PIN por WhatsApp
+      // ✅ Enviar PIN usando el número ingresado (aún necesario para el registro)
       await sendPinWhatsApp({
         phone: `${dialCode}${phone}`,
         pin,
       });
 
-      // 3. Muestra el popup del PIN
       setShowPinPopup(true);
     } catch (err) {
       console.error("Error al enviar PIN:", err);
@@ -74,7 +71,6 @@ export function SignUpForm({
 
   // Paso 2: Verifica PIN y si es correcto, crea el usuario
   const handleVerifyAndCreateUser = async () => {
-    // Verifica que el PIN ingresado sea igual al generado
     if (pinInput !== generatedPin) {
       setError("PIN incorrecto");
       return;
@@ -86,15 +82,11 @@ export function SignUpForm({
     try {
       const supabase = createClient();
 
-      // Una vez verificado el PIN, crea el usuario
+      // ✅ Crear usuario con teléfono - se guarda automáticamente en auth.users
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            phone: `${dialCode}${phone}`,
-          },
-        },
+        phone: `${dialCode}${phone}`, // ✅ Esto se guarda en auth.users.phone
       });
       
       if (error) throw error;
@@ -102,12 +94,19 @@ export function SignUpForm({
       const userId = data.user?.id;
       if (!userId) throw new Error("No se pudo crear el usuario");
 
-      // Guarda el teléfono en profiles (ya no es necesario guardar el PIN)
-      await supabase.from("profiles").insert([
-        { id: userId, phone: `${dialCode}${phone}` }
-      ]);
+      // ✅ Solo crear el perfil básico (sin teléfono)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert([{
+          id: userId,
+          created_at: new Date().toISOString()
+        }]);
 
-      // Redirige al dashboard
+      if (profileError) {
+        console.warn("Error creando perfil:", profileError);
+        // No es crítico, el perfil se puede crear después
+      }
+
       router.push("/dashboard");
     } catch (err) {
       console.error("Error al crear usuario:", err);
@@ -125,7 +124,6 @@ export function SignUpForm({
           <CardDescription>Crea una nueva cuenta</CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Cambia el onSubmit para llamar a handleSendPin en lugar de handleSignUp */}
           <form onSubmit={handleSendPin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
@@ -140,9 +138,7 @@ export function SignUpForm({
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Contraseña</Label>
-                </div>
+                <Label htmlFor="password">Contraseña</Label>
                 <Input
                   id="password"
                   type="password"
@@ -152,9 +148,7 @@ export function SignUpForm({
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="repeat-password">Repetir Contraseña</Label>
-                </div>
+                <Label htmlFor="repeat-password">Repetir Contraseña</Label>
                 <Input
                   id="repeat-password"
                   type="password"
@@ -167,7 +161,7 @@ export function SignUpForm({
                 <Label htmlFor="dialCode">Indicativo país</Label>
                 <Input
                   id="dialCode"
-                  placeholder="+34"
+                  placeholder="+57"
                   required
                   value={dialCode}
                   onChange={(e) => setDialCode(e.target.value)}
@@ -177,7 +171,7 @@ export function SignUpForm({
                 <Label htmlFor="phone">Número de teléfono</Label>
                 <Input
                   id="phone"
-                  placeholder="612345678"
+                  placeholder="300 123 4567"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -203,7 +197,10 @@ export function SignUpForm({
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Verificar tu número</h2>
-            <p className="mb-4">Hemos enviado un PIN a tu WhatsApp. Introdúcelo a continuación.</p>
+            <p className="mb-4">
+              Hemos enviado un PIN a tu WhatsApp{" "}
+              <span className="font-mono">{dialCode}{phone.substring(0, 3)}***</span>
+            </p>
             <div className="mb-4">
               <Input
                 type="text"
@@ -223,7 +220,6 @@ export function SignUpForm({
               >
                 Cancelar
               </Button>
-              {/* Cambia para llamar a la nueva función de verificación y creación */}
               <Button
                 onClick={handleVerifyAndCreateUser}
                 disabled={isLoading || pinInput.length !== 6}

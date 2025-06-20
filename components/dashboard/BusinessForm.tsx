@@ -82,9 +82,9 @@ export default function BusinessForm({ onSuccess }: BusinessFormProps) {
           className="mt-1 block w-full border rounded-md"
         >
           <option value="">Selecciona uno</option>
-          <option value="Lecheria">Lechería</option>
-          <option value="Ganaderia">Ganadería</option>
-          <option value="Agricultura">Agricultura</option>
+          <option value="Lecheria">Tecnología</option>
+          <option value="Ganaderia">Agricultura</option>
+          <option value="Agricultura">Otro</option>
         </select>
       </div>
       <div>
