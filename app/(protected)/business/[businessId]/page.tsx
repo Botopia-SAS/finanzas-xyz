@@ -392,8 +392,8 @@ export default function BusinessDashboardPage() {
           onComplete={(newMovement) => {
             setMoveModalOpen(false);
             
-            if (newMovement) {
-              setRecentMovements(prev => [newMovement, ...prev].slice(0, 5));
+            if (newMovement && newMovement.id) {
+              setRecentMovements(prev => [newMovement as Movement, ...prev].slice(0, 5));
               
               setMetrics(prev => {
                 const newIngresos = newMovement.type === "ingreso" 
@@ -415,7 +415,9 @@ export default function BusinessDashboardPage() {
                 };
               });
               
-              setMovements(prev => [newMovement, ...prev]);
+              if (newMovement.id) {
+                setMovements(prev => [newMovement as Movement, ...prev]);
+              }
             } else {
               setRefreshTrigger(prev => prev + 1);
             }
