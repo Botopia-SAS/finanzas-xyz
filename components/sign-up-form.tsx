@@ -82,29 +82,53 @@ export function SignUpForm({
     try {
       const supabase = createClient();
 
-      // ✅ Crear usuario con teléfono - se guarda automáticamente en auth.users
-      const { data, error } = await supabase.auth.signUp({
+      // ✅ PASO 1: Crear usuario solo con email/password
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        phone: `${dialCode}${phone}`, // ✅ Esto se guarda en auth.users.phone
       });
       
-      if (error) throw error;
+      if (signUpError) throw signUpError;
       
-      const userId = data.user?.id;
+      const userId = signUpData.user?.id;
       if (!userId) throw new Error("No se pudo crear el usuario");
 
-      // ✅ Solo crear el perfil básico (sin teléfono)
+      console.log("Usuario creado:", userId);
+
+      // ✅ PASO 2: Hacer login inmediatamente para poder actualizar
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (loginError) throw loginError;
+
+      // ✅ PASO 3: Ahora actualizar el usuario con el teléfono
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        data: {
+          phone: `${dialCode}${phone}`,
+          dial_code: dialCode,
+          raw_phone: phone
+        }
+      });
+
+      if (updateError) {
+        console.error("Error actualizando teléfono:", updateError);
+      } else {
+        console.log("Teléfono actualizado:", updateData);
+      }
+
+      // ✅ PASO 4: Crear perfil con el teléfono
       const { error: profileError } = await supabase
         .from("profiles")
         .insert([{
           id: userId,
+          phone: `${dialCode}${phone}`,
           created_at: new Date().toISOString()
         }]);
 
       if (profileError) {
         console.warn("Error creando perfil:", profileError);
-        // No es crítico, el perfil se puede crear después
       }
 
       router.push("/dashboard");

@@ -1,5 +1,5 @@
 import React from 'react'
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import BusinessLayout from "@/components/BusinessLayout";
 import { createClient } from "@/lib/supabase/server";
 import InventoryList from "@/components/dashboard/InventoryList";
 import BackButton from "@/components/BackButton";
@@ -7,12 +7,9 @@ import BackButton from "@/components/BackButton";
 export default async function InventoryPage({
   params,
 }: {
-  params: Promise<{ businessId: string; }>; // ✅ Solo params necesario
-  // ✅ Removido searchParams ya que no se usa
+  params: Promise<{ businessId: string; }>;
 }) {
-  // ✅ Solo await params
   const { businessId } = await params;
-  // ✅ Removido resolvedSearchParams
   
   const supabase = await createClient();
   const { data: inventoryItems } = await supabase
@@ -22,13 +19,15 @@ export default async function InventoryPage({
     .order("name");
 
   return (
-    <DashboardLayout>
-      <BackButton />
-      <h1 className="text-2xl font-semibold mb-4">Inventario</h1>
-      <InventoryList 
-        items={inventoryItems || []} 
-        businessId={businessId} 
-      />
-    </DashboardLayout>
+    <BusinessLayout businessId={businessId}>
+      <div className="p-6">
+        <BackButton />
+        <h1 className="text-2xl font-semibold mb-4">Inventario</h1>
+        <InventoryList 
+          items={inventoryItems || []} 
+          businessId={businessId} 
+        />
+      </div>
+    </BusinessLayout>
   );
 }

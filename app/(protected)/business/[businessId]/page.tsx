@@ -9,7 +9,7 @@ import Image from "next/image";
 import BusinessChart from "@/components/dashboard/BusinessChart";
 import Modal from "@/components/dashboard/Modal";
 import MovementForm from "@/components/dashboard/MovementForm";
-import { ArrowRight, PlusCircle } from "lucide-react";
+import { ArrowRight, PlusCircle, Users } from "lucide-react";
 
 interface Business {
   id: string;
@@ -177,7 +177,7 @@ export default function BusinessDashboardPage() {
       </div>
 
       {/* Métricas clave - Ahora stack en móvil y grid en desktop */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white overflow-hidden">
           <CardHeader className="pb-2 border-b">
             <CardTitle className="text-sm font-medium text-gray-500">Ingresos Totales</CardTitle>
@@ -210,7 +210,7 @@ export default function BusinessDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="bg-white overflow-hidden sm:col-span-2 lg:col-span-1">
+        <Card className="bg-white overflow-hidden">
           <CardHeader className="pb-2 border-b">
             <CardTitle className="text-sm font-medium text-gray-500">Rentabilidad</CardTitle>
           </CardHeader>
@@ -224,6 +224,39 @@ export default function BusinessDashboardPage() {
               }`}>
                 +2.5%
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ✅ TARJETA DE COLABORADORES SOBRIA */}
+        <Card className="bg-white overflow-hidden border hover:shadow-md transition-all duration-200">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-sm font-medium text-gray-500 flex items-center justify-between">
+              <span className="flex items-center">
+                <Users className="w-4 h-4 mr-2" />
+                Equipo
+              </span>
+              <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">
+                3 activos
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-bold text-gray-800 mb-1">
+                  Colaboradores
+                </div>
+                <p className="text-xs text-gray-500">
+                  Gestionar permisos y roles
+                </p>
+              </div>
+              <button
+                onClick={() => router.push(`/business/${businessId}/collaborators`)}
+                className="bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
+              >
+                <ArrowRight className="w-5 h-5 text-gray-600" />
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -344,45 +377,11 @@ export default function BusinessDashboardPage() {
         </div>
       </div>
 
-      {/* Botones de acción fijos en la parte inferior en móvil */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex gap-2 justify-around sm:hidden z-10">
-        <Button 
-          className="flex-1 py-2 text-sm" 
-          onClick={() => setMoveModalOpen(true)}
-        >
-          + Movimiento
-        </Button>
-        <Button 
-          variant="outline" 
-          className="flex-1 py-2 text-sm"
-          onClick={() => router.push(`/business/${businessId}/inventory`)}
-        >
-          Inventario
-        </Button>
-        <Button 
-          variant="outline" 
-          className="flex-1 py-2 text-sm"
-          onClick={() => router.push(`/business/${businessId}/verticals`)}
-        >
-          Verticales
-        </Button>
-      </div>
-
-      {/* Botones de acción normales para tablet/desktop */}
-      <div className="hidden sm:flex gap-4 mt-2">
-        <Button onClick={() => setMoveModalOpen(true)}>
-          + Agregar movimiento
-        </Button>
-        <Button variant="outline" onClick={() => router.push(`/business/${businessId}/inventory`)}>
-          Inventario
-        </Button>
-        <Button variant="outline" onClick={() => router.push(`/business/${businessId}/verticals`)}>
-          Verticales
-        </Button>
-      </div>
-
-      {/* Espacio adicional en móvil para que el contenido no quede detrás de los botones fijos */}
-      <div className="h-16 sm:hidden"></div>
+      {/* ❌ ELIMINAR - El FAB ahora viene del layout */}
+      {/* <FloatingActionButton 
+        businessId={businessId}
+        onAddMovement={() => setMoveModalOpen(true)}
+      /> */}
 
       {/* Modal para agregar movimiento */}
       <Modal isOpen={moveModalOpen} onClose={() => setMoveModalOpen(false)}>

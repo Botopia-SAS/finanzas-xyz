@@ -9,7 +9,7 @@ import { LogoutButton } from './logout-button';
 const navItems = [
 	{ label: 'Dashboard', href: '/dashboard', icon: <Home size={20} /> },
 	{ label: 'Perfil', href: '/profile', icon: <User size={20} /> },
-	{ label: 'Facturación', href: '/egresos', icon: <CreditCard size={20} /> },
+	{ label: 'Facturación', href: '/billing', icon: <CreditCard size={20} /> },
 	{ label: 'Configuraciones', href: '/materias-primas', icon: <Settings size={20} /> }
 ];
 
@@ -23,7 +23,7 @@ export default function Sidebar(): React.ReactElement {
 				<div>
 					<div className="mb-10 flex items-center space-x-2">
 						<div className="h-6 w-6 bg-black rounded-sm" />
-						<span className="text-lg font-semibold text-gray-800">Dumar</span>
+						<span className="text-lg font-semibold text-gray-800">Finanzas XYZ</span>
 					</div>
 					<nav>
 						<ul className="space-y-2">
