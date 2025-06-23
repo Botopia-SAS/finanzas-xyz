@@ -34,7 +34,7 @@ export default function BusinessCard({ business, onEdit, onDelete }: BusinessCar
     e.preventDefault();
     e.stopPropagation();
     
-    if (!confirm(`¿Estás seguro de que quieres eliminar "${business.name}"? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`¿Estás seguro de que quieres eliminar "${business.name}"?\n\nEsta acción eliminará:\n• Todos los movimientos\n• Todas las verticales\n• Todo el inventario asociado\n\nEsta acción no se puede deshacer.`)) {
       return;
     }
 
@@ -43,23 +43,54 @@ export default function BusinessCard({ business, onEdit, onDelete }: BusinessCar
     try {
       const supabase = createClient();
       
-      // Eliminar negocio
-      const { error } = await supabase
+      console.log('🗑️ Iniciando eliminación del negocio:', business.name);
+      
+      // ✅ Eliminar paso a paso con logs detallados
+      const steps = [
+        { name: 'movimientos', table: 'movements' },
+        { name: 'verticales', table: 'verticals' },
+      ];
+      
+      for (const step of steps) {
+        console.log(`Eliminando ${step.name}...`);
+        
+        const { error } = await supabase
+          .from(step.table)
+          .delete()
+          .eq('business_id', business.id);
+        
+        if (error) {
+          console.error(`Error eliminando ${step.name}:`, error);
+          throw new Error(`Error eliminando ${step.name}: ${error.message || 'Error desconocido'}`);
+        }
+        
+        console.log(`✅ ${step.name} eliminados`);
+      }
+      
+      // Eliminar el negocio
+      console.log('Eliminando negocio...');
+      const { error: businessError } = await supabase
         .from('businesses')
         .delete()
         .eq('id', business.id);
 
-      if (error) throw error;
+      if (businessError) {
+        console.error('Error eliminando negocio:', businessError);
+        throw new Error(`Error eliminando negocio: ${businessError.message || 'Error desconocido'}`);
+      }
 
-      // Notificar al componente padre
+      console.log('✅ Negocio eliminado exitosamente');
       onDelete?.(business.id);
-      
-      // Refrescar la página
-      router.refresh();
+      window.location.reload();
       
     } catch (error) {
-      console.error('Error eliminando negocio:', error);
-      alert('Error al eliminar el negocio');
+      console.error('💥 Error eliminando negocio:', error);
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Error desconocido al eliminar el negocio';
+      
+      alert(`❌ ${errorMessage}\n\nPor favor intenta de nuevo.`);
     } finally {
       setIsDeleting(false);
     }

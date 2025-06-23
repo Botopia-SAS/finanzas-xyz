@@ -177,13 +177,18 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
   useEffect(() => {
     const loadVerticals = async () => {
       const supabase = createClient();
-      const { data } = await supabase
+      
+      // Cargar verticales normales (excluir sistema)
+      const { data: normalVerticals } = await supabase
         .from("verticals")
         .select("*")
         .eq("business_id", businessId)
-        .eq("active", true);
-      
-      if (data) setVerticals(data);
+        .eq("active", true)
+        .eq("is_system", false); // ✅ Solo verticales no del sistema
+    
+      if (normalVerticals) {
+        setVerticals(normalVerticals);
+      }
     };
     
     loadVerticals();
@@ -261,9 +266,61 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       const supabase = createClient();
+      
+      // Si no hay vertical seleccionada, buscar la General
+      let finalVerticalId = selV;
+      
+      if (!selV || selV === "") {
+        const { data: generalVertical, error: generalError } = await supabase
+          .from('verticals')
+          .select('id')
+          .eq('business_id', businessId)
+          .eq('name', 'General')
+          .eq('is_system', true)
+          .single();
+        
+        if (generalError) {
+          console.warn('⚠️ No se encontró vertical General, creando una nueva...');
+          
+          // ✅ Crear vertical General si no existe
+          const { data: newGeneral, error: createError } = await supabase
+            .from('verticals')
+            .insert([{
+              business_id: businessId,
+              name: 'General',
+              description: 'Movimientos generales del negocio',
+              active: true,
+              is_template: false,
+              is_system: true,
+              variables_schema: {
+                type: 'general',
+                unit: 'unidad',
+                price: 0,
+                templateConfig: {
+                  lastUpdated: new Date().toISOString(),
+                  version: '1.0.0',
+                  customFields: {},
+                  isSystemGenerated: true,
+                  isHidden: true,
+                  autoAssign: true
+                }
+              }
+            }])
+            .select('id')
+            .single();
+          
+          finalVerticalId = newGeneral?.id || null;
+          
+          if (createError) {
+            console.error('Error creando vertical General:', createError);
+          }
+        } else {
+          finalVerticalId = generalVertical.id;
+        }
+      }
       
       // ✅ Generar descripción automática para gastos
       const finalDescription = (() => {
@@ -281,7 +338,7 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
       // ✅ Crear movimiento
       const movementData = {
         business_id: businessId,
-        vertical_id: selV || null,
+        vertical_id: finalVerticalId, // ✅ Usar General si no hay otra selección
         date,
         type: movementType as "ingreso" | "gasto",
         amount: movementType === "gasto" ? -Math.abs(amount) : Math.abs(amount),
@@ -433,7 +490,7 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
           className="block w-full border rounded p-2"
         >
           <option value="">
-            {movementType === "ingreso" ? "— Ingreso manual —" : "— Sin vertical específica —"}
+            {movementType === "ingreso" ? "— General —" : "— Sin vertical específica —"}
           </option>
           {verticals.map((v) => (
             <option key={v.id} value={v.id}>

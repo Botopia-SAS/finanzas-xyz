@@ -12,13 +12,20 @@ export default async function VerticalsPage({
   
   const supabase = await createClient();
   
-  const { data: verticals } = await supabase
+  // ✅ CORREGIR: Excluir verticales del sistema (is_system = true)
+  const { data: verticals, error } = await supabase
     .from("verticals")
     .select("*")
     .eq("business_id", businessId)
     .eq("active", true)
+    .neq("is_system", true) // ✅ EXCLUIR verticales del sistema
     .order("created_at", { ascending: false });
   
+  if (error) {
+    console.error("Error loading verticals:", error);
+    return <div>Error cargando verticales</div>;
+  }
+
   const { data: templates } = await supabase
     .from("verticals")
     .select("*")
