@@ -85,9 +85,9 @@ export const DEFAULT_ROLES: CollaboratorRole[] = [
     }
   },
   {
-    id: 'manager',
-    name: 'Administrador',
-    description: 'Puede gestionar operaciones pero no usuarios',
+    id: 'partner',
+    name: 'Socio',
+    description: 'Socio del negocio - Acceso completo a la plataforma',
     permissions: {
       canViewDashboard: true,
       canViewReports: true,
@@ -102,7 +102,7 @@ export const DEFAULT_ROLES: CollaboratorRole[] = [
       verticals: {
         canViewAll: true,
         canEdit: true,
-        canCreate: false,
+        canCreate: true,
         canDelete: false,
         allowedVerticals: []
       },
@@ -113,37 +113,37 @@ export const DEFAULT_ROLES: CollaboratorRole[] = [
         canDelete: false
       },
       admin: {
-        canInviteUsers: false,
-        canManageUsers: false,
-        canEditBusiness: false,
+        canInviteUsers: true,
+        canManageUsers: true,
+        canEditBusiness: true,
         canDeleteBusiness: false
       }
     }
   },
   {
-    id: 'data_entry_income',
-    name: 'Capturista de Ingresos',
-    description: 'Solo puede agregar información de ingresos/producción',
+    id: 'manager',
+    name: 'Administrador',
+    description: 'Puede registrar todos los ingresos y gastos del negocio',
     permissions: {
-      canViewDashboard: true,
+      canViewDashboard: false, // ❌ No accede al dashboard
       canViewReports: false,
       canExportData: false,
       movements: {
         canCreate: true,
-        canEdit: false,
+        canEdit: true,
         canDelete: false,
         canViewAll: false,
-        types: ['ingreso']
+        types: ['ingreso', 'gasto']
       },
       verticals: {
-        canViewAll: false,
+        canViewAll: true,
         canEdit: false,
         canCreate: false,
         canDelete: false,
         allowedVerticals: []
       },
       inventory: {
-        canView: true,
+        canView: false,
         canEdit: false,
         canCreate: false,
         canDelete: false
@@ -157,11 +157,11 @@ export const DEFAULT_ROLES: CollaboratorRole[] = [
     }
   },
   {
-    id: 'data_entry_expense',
-    name: 'Capturista de Gastos',
-    description: 'Solo puede agregar información de gastos',
+    id: 'worker',
+    name: 'Trabajador',
+    description: 'Puede registrar información solo en verticales específicas',
     permissions: {
-      canViewDashboard: true,
+      canViewDashboard: false, // ❌ No accede al dashboard
       canViewReports: false,
       canExportData: false,
       movements: {
@@ -169,17 +169,17 @@ export const DEFAULT_ROLES: CollaboratorRole[] = [
         canEdit: false,
         canDelete: false,
         canViewAll: false,
-        types: ['gasto']
+        types: ['ingreso', 'gasto']
       },
       verticals: {
         canViewAll: false,
         canEdit: false,
         canCreate: false,
         canDelete: false,
-        allowedVerticals: []
+        allowedVerticals: [] // Se especifica en la invitación
       },
       inventory: {
-        canView: true,
+        canView: false,
         canEdit: false,
         canCreate: false,
         canDelete: false

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import CollaboratorManager from "@/components/business/collaborators/CollaboratorManager";
 import BackButton from "@/components/BackButton";
+import CollaboratorsList from "@/components/business/collaborators/CollaboratorsList";
 
 export default async function CollaboratorsPage({
   params,
@@ -40,6 +41,7 @@ export default async function CollaboratorsPage({
         businessId={businessId} 
         verticals={verticals || []}
       />
+      <CollaboratorsList businessId={businessId} />
     </DashboardLayout>
   );
 }

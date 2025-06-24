@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserPlus } from 'lucide-react';
+import { Users } from 'lucide-react';
 import CollaboratorCard from './CollaboratorCard';
 import InvitationCard from './InvitationCard';
 import InvitationModal from './InvitationModal';
+import { Plus } from 'lucide-react';
 import { BusinessPermissions } from '../types/permissions';
 
 interface Collaborator {
@@ -80,11 +81,6 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
     loadInvitations();
   }, [loadCollaborators, loadInvitations]);
 
-  const handleInvitationSent = () => {
-    setShowInviteModal(false);
-    loadInvitations();
-  };
-
   const handleCollaboratorRemoved = () => {
     loadCollaborators();
   };
@@ -98,13 +94,19 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Colaboradores</h2>
-          <p className="text-gray-600">Gestiona quién puede acceder a tu negocio</p>
+          <h1 className="text-3xl font-bold text-[#152241]">
+            Colaboradores
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Gestiona tu equipo de trabajo
+          </p>
         </div>
-        <Button onClick={() => setShowInviteModal(true)}>
-          <UserPlus className="w-4 h-4 mr-2" />
+        
+        {/* ACTUALIZAR EL BOTÓN EXISTENTE */}
+        <Button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 bg-gradient-to-r from-[#fe8027] to-[#7dd1d6] text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-300 font-medium">
+          <Plus className="w-5 h-5" />
           Invitar Colaborador
         </Button>
       </div>
@@ -156,11 +158,14 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
         </Card>
       )}
 
-      {/* Modal de Invitación */}
+      {/* AGREGAR EL MODAL */}
       <InvitationModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
-        onInvitationSent={handleInvitationSent}
+        onInvitationSent={() => {
+          setShowInviteModal(false);
+          loadInvitations(); // ✅ Usar directamente
+        }}
         businessId={businessId}
         verticals={verticals}
       />

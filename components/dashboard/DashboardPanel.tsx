@@ -7,8 +7,14 @@ import BusinessForm from "./BusinessForm";
 import BusinessEditModal from "./BusinessEditModal";
 import Modal from "./Modal";
 
+// Cambiar la interfaz:
 interface DashboardPanelProps {
   businesses: Business[];
+  user: {
+    id: string;
+    email?: string;
+    [key: string]: unknown;
+  }; // ✅ Tipo específico en lugar de any
 }
 
 export default function DashboardPanel({ businesses }: DashboardPanelProps) {
@@ -39,10 +45,9 @@ export default function DashboardPanel({ businesses }: DashboardPanelProps) {
       <div className="max-w-7xl mx-auto p-6 space-y-8">
         
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 via-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-4xl font-bold text-[#152241] text-center mb-8">
             Mis Negocios
           </h1>
-          
         </div>
 
         {/* Grid de negocios - ORIGINAL */}
@@ -70,7 +75,7 @@ export default function DashboardPanel({ businesses }: DashboardPanelProps) {
             
             {/* Contenido principal */}
             <div className="relative text-center z-10">
-              <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-4 rounded-full shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 mx-auto mb-4 w-fit">
+              <div className="bg-gradient-to-br from-[#fe8027] to-[#7dd1d6] p-4 rounded-full shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300 mx-auto mb-4 w-fit">
                 <PlusCircle size={28} className="text-white" />
               </div>
               <h3 className="text-lg font-semibold text-gray-700 group-hover:text-blue-700 transition-colors duration-300">
