@@ -3,134 +3,273 @@ import React, { useEffect, useState } from "react";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+// ✅ ACTUALIZAR EL TIPO Template
 export type Template = {
   id: string;
   name: string;
-  variables_schema: { unit: string; estimated: number; price: number };
+  description?: string;
+  variables_schema: { 
+    unit?: string; 
+    price?: number; 
+    type?: string;
+    [key: string]: any; // Para permitir otras propiedades
+  };
 };
 
 interface FormProps {
   businessId: string;
-  templates: Template[];
   onCreated?: () => void;
 }
 
 export default function VerticalForm({
   businessId,
-  templates,
   onCreated,
 }: FormProps) {
   const supabase = createBrowserClient();
   const router = useRouter();
+  
+  // Estados - SIN estimated
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState("");
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [unit, setUnit] = useState("");
-  const [estimated, setEstimated] = useState<number>(0);
-  const [price, setPrice] = useState<number>(0);
+  const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Al cambiar plantilla, auto-rellena campos
+  // ✅ CARGAR PLANTILLAS REALES
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("verticals")
+          .select("*")
+          .eq("is_template", true)
+          .order("name", { ascending: true });
+
+        if (error) {
+          console.error("Error cargando plantillas:", error);
+        } else {
+          console.log("🔥 Plantillas cargadas:", data);
+          setTemplates(data || []);
+        }
+      } catch (err) {
+        console.error("Error:", err);
+      }
+    };
+
+    loadTemplates();
+  }, []);
+
+  // ✅ FORMATEAR NÚMEROS CON PUNTOS
+  const formatNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    return numbers.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const parseNumber = (value: string) => {
+    return value.replace(/\./g, '');
+  };
+
+  // Al cambiar plantilla, auto-rellena campos - CORREGIDO
   useEffect(() => {
     const tpl = templates.find((t) => t.id === templateId);
     if (tpl) {
+      console.log("🎯 Aplicando plantilla:", tpl);
       setName(tpl.name);
-      setUnit(tpl.variables_schema.unit);
-      setEstimated(tpl.variables_schema.estimated);
-      setPrice(tpl.variables_schema.price);
+      setDescription(tpl.description || "");
+      
+      // ✅ LEER PRECIO DEL JSON variables_schema
+      const schema = tpl.variables_schema;
+      setUnit(schema?.unit || "");
+      
+      // Convertir precio decimal a entero para mostrar (1.5 -> 150)
+      const priceInCents = schema?.price ? Math.round(schema.price * 100) : 0;
+      setPrice(priceInCents > 0 ? formatNumber(priceInCents.toString()) : "");
     } else {
       setName("");
+      setDescription("");
       setUnit("");
-      setEstimated(0);
-      setPrice(0);
+      setPrice("");
     }
   }, [templateId, templates]);
+
+  // ✅ HANDLE CAMBIOS EN PRECIO CON FORMATO
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatNumber(e.target.value);
+    setPrice(formatted);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.from("verticals").insert([
-      {
+
+    try {
+      // ✅ VALIDACIÓN BÁSICA
+      if (!name.trim()) {
+        alert("El nombre es requerido");
+        return;
+      }
+
+      if (!businessId) {
+        alert("Error: ID de negocio no encontrado");
+        return;
+      }
+
+      // Convertir precio formateado de vuelta a número
+      const priceNumber = price ? parseFloat(parseNumber(price)) / 100 : 0;
+
+      // ✅ DETERMINAR EL TIPO SEGÚN LA PLANTILLA O DATOS
+      let verticalType = "generic"; // Tipo por defecto
+      
+      // Si viene de plantilla, usar su tipo
+      if (templateId) {
+        const template = templates.find(t => t.id === templateId);
+        if (template?.variables_schema?.type) {
+          verticalType = template.variables_schema.type;
+        }
+      }
+
+      console.log("🔍 Datos a enviar:", {
         business_id: businessId,
-        name,
-        is_template: false,
-        variables_schema: { unit, estimated, price },
-        active: true,
-      },
-    ]);
-    if (!error) {
-      router.refresh();
+        name: name.trim(),
+        description: description.trim() || null,
+        variables_schema: {
+          unit: unit.trim() || null,
+          price: priceNumber,
+          type: verticalType, // ✅ USAR TIPO CORRECTO
+          inventory: {
+            total: 0,
+            items: []
+          }
+        }
+      });
+
+      // ✅ ESTRUCTURA CORRECTA
+      const { data, error } = await supabase
+        .from("verticals")
+        .insert([
+          {
+            business_id: businessId,
+            name: name.trim(),
+            description: description.trim() || null,
+            variables_schema: {
+              unit: unit.trim() || null,
+              price: priceNumber,
+              type: verticalType, // ✅ NO "custom"
+              inventory: {
+                total: 0,
+                items: []
+              }
+            },
+            is_template: false,
+            is_system: false,
+            active: true
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error("❌ Error de Supabase completo:", error);
+        throw error;
+      }
+
+      console.log("✅ Vertical creado exitosamente:", data);
+      
+      // Limpiar formulario
+      setTemplateId("");
+      setName("");
+      setDescription("");
+      setUnit("");
+      setPrice("");
+      
+      // Cerrar modal
       onCreated?.();
+      
+    } catch (err: any) {
+      console.error("❌ Error completo capturado:", err);
+      alert(`Error: ${err?.message || 'Error desconocido'}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="max-w-xl mx-auto space-y-4">
-      <select
-        value={templateId}
-        onChange={(e) => setTemplateId(e.target.value)}
-        className="block w-full border rounded p-2"
-      >
-        <option value="">— Elige una plantilla —</option>
-        {templates.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
-
+      
+      {/* ✅ SELECTOR DE PLANTILLAS NORMAL */}
       <div>
-        <label className="block text-sm font-medium">Nombre</label>
+        <label className="block text-sm font-medium mb-1">Plantilla (opcional)</label>
+        <select
+          value={templateId}
+          onChange={(e) => setTemplateId(e.target.value)}
+          className="block w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">— Elige una plantilla —</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Nombre */}
+      <div>
+        <label className="block text-sm font-medium mb-1">Nombre *</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="block w-full border rounded p-2"
+          className="block w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Ej: Lechería, Cultivos, Huevos..."
           required
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      {/* ✅ DESCRIPCIÓN OPCIONAL */}
+      <div>
+        <label className="block text-sm font-medium mb-1">Descripción (opcional)</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="block w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Describe brevemente este vertical de negocio..."
+          rows={2}
+        />
+      </div>
+
+      {/* ✅ Grid de solo 2 campos - SIN ESTIMADO */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Unidad */}
         <div>
-          <label className="block text-sm font-medium">Unidad</label>
+          <label className="block text-sm font-medium mb-1">Unidad</label>
           <input
             value={unit}
             onChange={(e) => setUnit(e.target.value)}
-            className="block w-full border rounded p-2"
-            placeholder="litros, kg…"
-            required
+            className="block w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="litros, kg..."
           />
         </div>
+
+        {/* ✅ PRECIO CON FORMATO AUTOMÁTICO */}
         <div>
-          <label className="block text-sm font-medium">Estimado</label>
+          <label className="block text-sm font-medium mb-1">Precio x unidad</label>
           <input
-            type="number"
-            value={estimated}
-            onChange={(e) => setEstimated(+e.target.value)}
-            className="block w-full border rounded p-2"
-            min={0}
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Precio x unidad</label>
-          <input
-            type="number"
             value={price}
-            onChange={(e) => setPrice(+e.target.value)}
-            className="block w-full border rounded p-2"
-            min={0}
-            step="0.01"
-            required
+            onChange={handlePriceChange}
+            className="block w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="0"
           />
         </div>
       </div>
 
+      {/* ✅ BOTÓN CON COLOR NARANJA TRANSPARENTE */}
       <button
         type="submit"
-        disabled={loading}
-        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+        disabled={loading || !name.trim()}
+        className="w-full bg-orange-500/70 hover:bg-orange-500/80 text-white py-3 rounded-md disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 shadow-md hover:shadow-lg"
       >
-        {loading ? "Guardando…" : "+ Nueva Vertical"}
+        {loading ? "Guardando..." : "+ Nueva Vertical"}
       </button>
     </form>
   );

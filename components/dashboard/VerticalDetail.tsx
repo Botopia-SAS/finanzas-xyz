@@ -25,6 +25,7 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
   
   const [currentSchema, setCurrentSchema] = useState<VerticalSchema | null>(null);
   
+  // ✅ Asegurar que el schema se normalice correctamente:
   useEffect(() => {
     if (vertical?.variables_schema) {
       const baseSchema = vertical.variables_schema;
@@ -32,6 +33,11 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
       if (baseSchema.type === 'dairy') {
         const normalizedSchema = {
           ...baseSchema,
+          inventory: {
+            items: [],
+            total: 0,
+            ...baseSchema.inventory // ✅ Preservar datos existentes
+          },
           templateConfig: {
             lastUpdated: new Date().toISOString(),
             version: "1.0.0",
@@ -40,7 +46,7 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
             productionFrequency: 'daily' as const,
             milkingTimes: 2,
             qualityMetrics: false,
-            ...baseSchema.templateConfig
+            ...baseSchema.templateConfig // ✅ Preservar configuración existente
           } as DairyTemplateConfig
         } as VerticalSchema;
         setCurrentSchema(normalizedSchema);
@@ -60,7 +66,17 @@ export default function VerticalDetail({ vertical, movements }: VerticalDetailPr
         } as VerticalSchema;
         setCurrentSchema(normalizedSchema);
       } else {
-        setCurrentSchema(baseSchema);
+        // ✅ PARA TIPOS GENÉRICOS O DESCONOCIDOS
+        const normalizedSchema = {
+          ...baseSchema,
+          type: baseSchema.type || "generic",
+          inventory: {
+            total: 0,
+            items: [],
+            ...baseSchema.inventory
+          }
+        } as VerticalSchema;
+        setCurrentSchema(normalizedSchema);
       }
     }
   }, [vertical]);

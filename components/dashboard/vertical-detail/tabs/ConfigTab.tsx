@@ -1,15 +1,10 @@
-import { useState } from "react";
+"use client";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { VerticalSchema, DairySchema, EggSchema } from "../types/interfaces";
 import DairyEditor from "../../vertical-templates/DairyEditor";
 import EggsEditor from "../../vertical-templates/EggsEditor";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { 
-  VerticalSchema, 
-  DairySchema, 
-  EggSchema, 
-  DairyTemplateConfig,
-  EggTemplateConfig 
-} from "../types/interfaces";
+import GenericEditor from "../../vertical-templates/GenericEditor"; // ✅ Crear editor genérico
 
 interface ConfigTabProps {
   schema: VerticalSchema;
@@ -18,472 +13,158 @@ interface ConfigTabProps {
 }
 
 export default function ConfigTab({ schema: initialSchema, verticalId, loading }: ConfigTabProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [schema, setSchema] = useState(() => {
-    // Normalizar schema según el tipo para asegurar que tenga todas las propiedades
-    if (initialSchema.type === 'dairy') {
-      const dairySchema = initialSchema as DairySchema;
-      return {
-        ...dairySchema,
-        templateConfig: {
-          lastUpdated: new Date().toISOString(),
-          version: "1.0.0",
-          customFields: {},
-          trackIndividualProduction: true,
-          productionFrequency: 'daily' as const,
-          milkingTimes: 2,
-          qualityMetrics: false,
-          ...dairySchema.templateConfig
-        } as DairyTemplateConfig,
-        inventory: dairySchema.inventory || { items: [] }
-      } as DairySchema;
-    } else if (initialSchema.type === 'eggs') {
-      const eggSchema = initialSchema as EggSchema;
-      return {
-        ...eggSchema,
-        templateConfig: {
-          lastUpdated: new Date().toISOString(),
-          version: "1.0.0",
-          customFields: {},
-          trackByType: true,
-          eggGradingEnabled: false,
-          collectionFrequency: 'daily' as const,
-          qualityControl: false,
-          ...eggSchema.templateConfig
-        } as EggTemplateConfig,
-        inventory: eggSchema.inventory || { total: 0 },
-        productionTypes: eggSchema.productionTypes || []
-      } as EggSchema;
-    }
-    
-    return initialSchema;
-  });
+  const [schema, setSchema] = useState<VerticalSchema>(initialSchema);
   const [saving, setSaving] = useState(false);
-  const router = useRouter();
+
+  useEffect(() => {
+    setSchema(initialSchema);
+  }, [initialSchema]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      // ✅ VALIDACIONES PREVIAS
+      if (!verticalId) {
+        throw new Error("ID de vertical no encontrado");
+      }
+
+      if (!schema) {
+        throw new Error("Schema no válido");
+      }
+
+      console.log("🔍 Validando datos antes de guardar:");
+      console.log("- verticalId:", verticalId);
+      console.log("- schema:", schema);
+
       const supabase = createClient();
       
-      // Actualizar templateConfig antes de guardar
-      const updatedSchema = {
-        ...schema,
-        templateConfig: {
-          ...schema.templateConfig,
-          lastUpdated: new Date().toISOString()
-        }
-      };
+      // ✅ VERIFICAR QUE EL VERTICAL EXISTE PRIMERO
+      const { data: existingVertical, error: checkError } = await supabase
+        .from("verticals")
+        .select("id, business_id, name")
+        .eq("id", verticalId)
+        .single();
+
+      if (checkError) {
+        console.error("❌ Error verificando vertical:", checkError);
+        throw new Error(`No se encontró el vertical: ${checkError.message}`);
+      }
+
+      console.log("✅ Vertical encontrado:", existingVertical);
       
-      const { error } = await supabase
-        .from('verticals')
-        .update({ variables_schema: updatedSchema })
-        .eq('id', verticalId);
-        
-      if (error) throw error;
-      
-      setIsEditing(false);
-      router.refresh();
+      // ✅ ACTUALIZAR SOLO variables_schema
+      const { data, error } = await supabase
+        .from("verticals")
+        .update({ 
+          variables_schema: schema
+        })
+        .eq("id", verticalId)
+        .select();
+
+      if (error) {
+        console.error("❌ Error de Supabase completo:", error);
+        console.error("❌ Error message:", error.message);
+        console.error("❌ Error details:", error.details);
+        console.error("❌ Error hint:", error.hint);
+        throw error;
+      }
+
+      console.log("✅ Configuración guardada exitosamente:", data);
       alert("Configuración guardada exitosamente");
-    } catch (error) {
-      console.error("Error al guardar:", error);
-      alert("Error al guardar la configuración");
+      
+    } catch (err: any) {
+      console.error("❌ Error completo capturado:", err);
+      
+      if (err?.message) {
+        alert(`Error: ${err.message}`);
+      } else {
+        alert("Error desconocido al guardar. Revisa la consola.");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    // Restaurar el estado inicial normalizado
-    if (initialSchema.type === 'dairy') {
-      const dairySchema = initialSchema as DairySchema;
-      setSchema({
-        ...dairySchema,
-        templateConfig: {
-          lastUpdated: new Date().toISOString(),
-          version: "1.0.0",
-          customFields: {},
-          trackIndividualProduction: true,
-          productionFrequency: 'daily' as const,
-          milkingTimes: 2,
-          qualityMetrics: false,
-          ...dairySchema.templateConfig
-        } as DairyTemplateConfig,
-        inventory: dairySchema.inventory || { items: [] }
-      } as DairySchema);
-    } else if (initialSchema.type === 'eggs') {
-      const eggSchema = initialSchema as EggSchema;
-      setSchema({
-        ...eggSchema,
-        templateConfig: {
-          lastUpdated: new Date().toISOString(),
-          version: "1.0.0",
-          customFields: {},
-          trackByType: true,
-          eggGradingEnabled: false,
-          collectionFrequency: 'daily' as const,
-          qualityControl: false,
-          ...eggSchema.templateConfig
-        } as EggTemplateConfig,
-        inventory: eggSchema.inventory || { total: 0 },
-        productionTypes: eggSchema.productionTypes || []
-      } as EggSchema);
-    } else {
-      setSchema(initialSchema);
-    }
-    setIsEditing(false);
+    setSchema(initialSchema);
   };
 
-  // ✅ FUNCIÓN HELPER PARA ACTUALIZAR SCHEMA DE FORMA TYPE-SAFE
-  const updateSchemaPrice = (newPrice: number) => {
-    if (schema.type === 'dairy') {
-      const dairySchema = schema as DairySchema;
-      setSchema({
-        ...dairySchema,
-        price: newPrice
-      });
-    } else if (schema.type === 'eggs') {
-      const eggSchema = schema as EggSchema;
-      setSchema({
-        ...eggSchema,
-        price: newPrice
-      });
-    }
-  };
-
-  const renderSpecificEditor = () => {
-    if (schema.type === "dairy") {
-      const dairySchema = schema as DairySchema;
-      
-      return isEditing ? (
-        <DairyEditor 
-          schema={dairySchema} 
-          onChange={(updatedSchema) => setSchema(updatedSchema)}
-        />
-      ) : (
-        <DairyReadOnlyView schema={dairySchema} />
-      );
-    } else if (schema.type === "eggs") {
-      const eggSchema = schema as EggSchema;
-      
-      return isEditing ? (
-        <EggsEditor 
-          schema={eggSchema} 
-          onChange={(updatedSchema) => setSchema(updatedSchema)}
-        />
-      ) : (
-        <EggsReadOnlyView schema={eggSchema} />
-      );
-    }
-    
-    // ✅ SECCIÓN GENERAL CORREGIDA CON TYPE GUARDS
+  if (loading) {
     return (
-      <div className="bg-gray-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Configuración General</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Precio por unidad</label>
-            {isEditing ? (
-              <input
-                type="number"
-                value={(schema as DairySchema | EggSchema).price || 0}
-                onChange={(e) => updateSchemaPrice(Number(e.target.value))}
-                className="w-full border rounded-md p-2"
-                step="0.01"
-                min="0"
-              />
-            ) : (
-              <input
-                type="number"
-                value={(schema as DairySchema | EggSchema).price || 0}
-                className="w-full border rounded-md p-2 bg-gray-100"
-                readOnly
-              />
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Unidad</label>
-            <input
-              type="text"
-              value={(schema as DairySchema | EggSchema).unit || ""}
-              className="w-full border rounded-md p-2 bg-gray-100"
-              readOnly
-            />
-          </div>
-        </div>
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="text-gray-500 mt-2">Cargando configuración...</p>
       </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header con botones de acción */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">
-          Configuración de {schema.type === 'dairy' ? 'Lechería' : 'Huevos'}
-        </h2>
-        
-        <div className="flex gap-2">
-          {!isEditing ? (
+      {/* Header con botones */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              Configuración de {
+                schema.type === 'dairy' ? 'Lechería' : 
+                schema.type === 'eggs' ? 'Huevos' : 
+                'Vertical Personalizado'
+              }
+            </h2>
+            <p className="text-gray-600">
+              Personaliza los parámetros y configuraciones de tu vertical
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
             <button
-              onClick={() => setIsEditing(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={handleCancel}
+              className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
             >
-              ✏️ Editar Configuración
+              Restaurar
             </button>
-          ) : (
-            <>
-              <button
-                onClick={handleCancel}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {saving ? "Guardando..." : "💾 Guardar Cambios"}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Estado de edición */}
-      {isEditing && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-          <p className="text-yellow-800 text-sm">
-            ⚠️ Modo de edición activo. Los cambios no se guardarán hasta que hagas clic en &quot;Guardar Cambios&quot;.
-          </p>
-        </div>
-      )}
-
-      {/* Información de configuración */}
-      {schema.templateConfig && (
-        <div className="bg-gray-50 p-3 rounded text-xs text-gray-600">
-          <p>Última actualización: {
-            schema.templateConfig.lastUpdated 
-              ? new Date(schema.templateConfig.lastUpdated).toLocaleString('es-ES')
-              : 'No disponible'
-          }</p>
-          <p>Versión: {schema.templateConfig.version || 'No especificada'}</p>
-          
-          {/* Mostrar configuraciones específicas */}
-          {schema.type === 'dairy' && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <p>Seguimiento individual: {(schema.templateConfig as DairyTemplateConfig).trackIndividualProduction ? 'Sí' : 'No'}</p>
-              <p>Frecuencia: {(schema.templateConfig as DairyTemplateConfig).productionFrequency || 'Daily'}</p>
-            </div>
-          )}
-          
-          {schema.type === 'eggs' && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <p>Seguimiento por tipo: {(schema.templateConfig as EggTemplateConfig).trackByType ? 'Sí' : 'No'}</p>
-              <p>Frecuencia de recolección: {(schema.templateConfig as EggTemplateConfig).collectionFrequency || 'Daily'}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Editor específico */}
-      {renderSpecificEditor()}
-      
-      {(loading || saving) && (
-        <div className="text-center py-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-500">
-            {saving ? "Guardando configuración..." : "Cargando configuración..."}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Componente para vista de solo lectura de Dairy
-function DairyReadOnlyView({ schema }: { schema: DairySchema }) {
-  return (
-    <div className="space-y-4">
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Configuración de Lechería</h3>
-        <p className="text-sm text-gray-600">
-          Configuración actual de la vertical de lechería.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Precio por litro</label>
-          <div className="w-full border rounded-md p-2 bg-gray-100">
-            ${schema.price?.toFixed(2) || "0.00"}
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Unidad</label>
-          <div className="w-full border rounded-md p-2 bg-gray-100">
-            {schema.unit || "litros"}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-gradient-to-r from-[#fe8027] to-[#7dd1d6] text-white rounded-lg hover:from-[#e5722a] hover:to-[#6bc5ca] disabled:opacity-50 transition-all duration-200 font-medium"
+            >
+              {saving ? "Guardando..." : "Guardar Cambios"}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Configuraciones específicas de lechería */}
-      <div className="bg-blue-50 p-3 rounded">
-        <h4 className="text-sm font-medium mb-2">Configuraciones de Producción</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600">Seguimiento individual:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.trackIndividualProduction ? 'Activado' : 'Desactivado'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Frecuencia:</span>
-            <span className="ml-2 font-medium capitalize">
-              {schema.templateConfig?.productionFrequency || 'Diaria'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Ordeños por día:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.milkingTimes || 2}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Métricas de calidad:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.qualityMetrics ? 'Activadas' : 'Desactivadas'}
-            </span>
-          </div>
-        </div>
+      {/* ✅ EDITOR SEGÚN TIPO CON SOPORTE PARA TODOS */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        {schema.type === "dairy" ? (
+          <DairyEditor 
+            schema={schema as DairySchema} 
+            onChange={setSchema}
+          />
+        ) : schema.type === "eggs" ? (
+          <EggsEditor 
+            schema={schema as EggSchema} 
+            onChange={setSchema}
+          />
+        ) : (
+          // ✅ EDITOR GENÉRICO PARA OTROS TIPOS
+          <GenericEditor 
+            schema={schema} 
+            onChange={setSchema}
+          />
+        )}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-2">Inventario de Vacas</label>
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-sm text-gray-600">Total de vacas:</p>
-              <p className="text-xl font-bold">{schema.inventory?.items?.length || 0}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Vacas en producción:</p>
-              <p className="text-xl font-bold text-green-600">
-                {schema.inventory?.items?.filter((item) => item.inProduction !== false).length || 0}
-              </p>
-            </div>
-          </div>
-          
-          {schema.inventory?.items && schema.inventory.items.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Lista de Vacas:</h4>
-              <div className="max-h-40 overflow-y-auto space-y-1">
-                {schema.inventory.items.map((cow) => (
-                  <div key={cow.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                    <div>
-                      <span className="font-medium">{cow.name}</span>
-                      {cow.notes && <p className="text-xs text-gray-500">{cow.notes}</p>}
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      cow.inProduction !== false 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {cow.inProduction !== false ? 'En producción' : 'Inactiva'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Componente para vista de solo lectura de Eggs
-function EggsReadOnlyView({ schema }: { schema: EggSchema }) {
-  return (
-    <div className="space-y-4">
-      <div className="bg-yellow-50 p-4 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Configuración de Huevos</h3>
-        <p className="text-sm text-gray-600">
-          Configuración actual de la vertical de huevos.
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Precio promedio</label>
-          <div className="w-full border rounded-md p-2 bg-gray-100">
-            ${schema.price?.toFixed(2) || "0.00"}
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Total de gallinas</label>
-          <div className="w-full border rounded-md p-2 bg-gray-100">
-            {schema.inventory?.total || 0}
-          </div>
-        </div>
-      </div>
-
-      {/* Configuraciones específicas de huevos */}
-      <div className="bg-yellow-50 p-3 rounded">
-        <h4 className="text-sm font-medium mb-2">Configuraciones de Producción</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600">Seguimiento por tipo:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.trackByType ? 'Activado' : 'Desactivado'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Clasificación:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.eggGradingEnabled ? 'Activada' : 'Desactivada'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Frecuencia de recolección:</span>
-            <span className="ml-2 font-medium capitalize">
-              {schema.templateConfig?.collectionFrequency || 'Diaria'}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600">Control de calidad:</span>
-            <span className="ml-2 font-medium">
-              {schema.templateConfig?.qualityControl ? 'Activado' : 'Desactivado'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-2">Tipos de Huevos</label>
-        <div className="bg-gray-50 p-4 rounded">
-          <p className="text-sm text-gray-600 mb-3">
-            Tipos configurados: {schema.productionTypes?.length || 0}
-          </p>
-          
-          {schema.productionTypes && schema.productionTypes.length > 0 && (
-            <div className="space-y-2">
-              {schema.productionTypes.map((type) => (
-                <div key={type.id} className="flex items-center justify-between p-2 bg-white rounded border">
-                  <div>
-                    <span className="font-medium">{type.name}</span>
-                    {type.description && <p className="text-xs text-gray-500">{type.description}</p>}
-                  </div>
-                  <span className="text-sm font-medium text-green-600">
-                    ${type.price.toFixed(2)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Información de debug */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <details className="cursor-pointer">
+          <summary className="text-sm font-medium text-gray-700 mb-2">
+            Ver JSON de configuración (Debug)
+          </summary>
+          <pre className="text-xs bg-gray-100 p-3 rounded overflow-auto max-h-40">
+            {JSON.stringify(schema, null, 2)}
+          </pre>
+        </details>
       </div>
     </div>
   );

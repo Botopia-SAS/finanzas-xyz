@@ -1,30 +1,122 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import BusinessLayout from "@/components/BusinessLayout";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import VerticalsList from "@/components/dashboard/VerticalsList";
 import Link from "next/link";
 import { ArrowLeft, Grid3X3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Modal from "@/components/dashboard/Modal";
+import VerticalForm from "@/components/dashboard/VerticalForm";
 
-export default async function VerticalsPage({
+interface Vertical {
+  id: string;
+  name: string;
+  description?: string;
+  unit?: string;
+  price?: number;
+  active: boolean;
+}
+
+export default function VerticalsPage({
   params,
 }: {
-  params: Promise<{ businessId: string; }>;
+  params: Promise<{ businessId: string }>;
 }) {
-  const { businessId } = await params;
+  const [businessId, setBusinessId] = useState<string>("");
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
   
-  const supabase = await createClient();
-  
-  // ✅ CORREGIR: Excluir verticales del sistema (is_system = true)
-  const { data: verticals, error } = await supabase
-    .from("verticals")
-    .select("*")
-    .eq("business_id", businessId)
-    .eq("active", true)
-    .neq("is_system", true) // ✅ EXCLUIR verticales del sistema
-    .order("created_at", { ascending: false });
-  
+  // Estados para modales
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Resolver params y cargar datos
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const resolvedParams = await params;
+        setBusinessId(resolvedParams.businessId);
+        
+        const supabase = createClient();
+        
+        const { data: verticalsData, error: verticalsError } = await supabase
+          .from("verticals")
+          .select("*")
+          .eq("business_id", resolvedParams.businessId)
+          .eq("active", true)
+          .neq("is_system", true)
+          .order("created_at", { ascending: false });
+        
+        if (verticalsError) {
+          setError("No se pudieron cargar los verticales");
+          console.error("Error loading verticals:", verticalsError);
+        } else {
+          setVerticals(verticalsData || []);
+        }
+      } catch (err) {
+        setError("Error al cargar la página");
+        console.error("Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [params]);
+
+  // Funciones para los botones del header
+  const handleAddVertical = () => {
+    setShowCreateModal(true);
+    console.log("🔥 Abriendo modal desde HEADER para crear vertical...");
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false);
+    refreshVerticals(); // ✅ Usar refresh en lugar de window.location.reload()
+  };
+
+  // En page.tsx, asegurar que refreshVerticals funcione:
+  const refreshVerticals = async () => {
+    try {
+      console.log("🔄 Refrescando verticales para business:", businessId);
+      
+      const supabase = createClient();
+      
+      const { data: verticalsData, error: verticalsError } = await supabase
+        .from("verticals")
+        .select("*")
+        .eq("business_id", businessId)
+        .eq("active", true)
+        .neq("is_system", true)
+        .order("created_at", { ascending: false });
+      
+      if (verticalsError) {
+        console.error("❌ Error reloading verticals:", verticalsError);
+      } else {
+        console.log("✅ Verticales recargados:", verticalsData);
+        setVerticals(verticalsData || []);
+      }
+    } catch (err) {
+      console.error("❌ Error en refreshVerticals:", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <BusinessLayout businessId={businessId}>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-[#fe8027] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando verticales...</p>
+          </div>
+        </div>
+      </BusinessLayout>
+    );
+  }
+
   if (error) {
-    console.error("Error loading verticals:", error);
     return (
       <BusinessLayout businessId={businessId}>
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 flex items-center justify-center p-4">
@@ -32,8 +124,10 @@ export default async function VerticalsPage({
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-xl sm:text-2xl">⚠️</span>
             </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-[#152241] mb-2">Error al cargar</h2>
-            <p className="text-sm sm:text-base text-gray-600 mb-4">No se pudieron cargar los verticales</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-[#152241] mb-2">
+              Error al cargar
+            </h2>
+            <p className="text-sm sm:text-base text-gray-600 mb-4">{error}</p>
             <Button 
               className="w-full sm:w-auto bg-gradient-to-r from-[#fe8027] to-[#7dd1d6] hover:from-[#e5722a] hover:to-[#6bc5ca] text-white"
               onClick={() => window.history.back()}
@@ -96,15 +190,10 @@ export default async function VerticalsPage({
                       </div>
                     </div>
                     
-                    {/* Botones de acción */}
+                    {/* ✅ BOTONES FUNCIONALES */}
                     <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <Button 
-                        variant="outline"
-                        className="w-full sm:w-auto text-xs sm:text-sm border-[#152241]/20 text-[#152241] hover:bg-[#152241]/5 hover:border-[#152241]/30 transition-all duration-200"
-                      >
-                        Usar plantilla
-                      </Button>
-                      <Button 
+                        onClick={handleAddVertical}
                         className="w-full sm:w-auto text-xs sm:text-sm bg-gradient-to-r from-[#fe8027] to-[#7dd1d6] hover:from-[#e5722a] hover:to-[#6bc5ca] text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
                       >
                         <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -122,9 +211,22 @@ export default async function VerticalsPage({
             <VerticalsList 
               verticals={verticals || []} 
               businessId={businessId}
+              onVerticalDeleted={refreshVerticals} // ✅ Agregar callback
             />
           </div>
         </div>
+
+        {/* ✅ MODAL DEL HEADER */}
+        <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)}>
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-4">🚀 Crear Nuevo Vertical (Header)</h2>
+            <VerticalForm
+              businessId={businessId}
+             
+              onCreated={handleCreateSuccess}
+            />
+          </div>
+        </Modal>
       </div>
     </BusinessLayout>
   );

@@ -18,10 +18,15 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
             <input
               type="number"
               value={schema.price}
-              onChange={(e) => onChange({...schema, price: Number(e.target.value)})}
-              className="w-full border rounded-md p-2"
+              onChange={(e) => {
+                const newPrice = Number(e.target.value);
+                console.log("💰 Cambiando precio a:", newPrice);
+                onChange({...schema, price: newPrice});
+              }}
+              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               step="0.01"
               min="0"
+              placeholder="Ej: 1.50"
             />
           </div>
           
@@ -180,6 +185,8 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
                   notes: ""
                 };
                 
+                console.log("🐄 Agregando nueva vaca:", newCow);
+                
                 onChange({
                   ...schema,
                   inventory: {
@@ -188,7 +195,7 @@ export default function DairyEditor({ schema, onChange }: DairyEditorProps) {
                   }
                 });
               }}
-              className="mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+              className="mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors duration-200"
             >
               + Agregar Vaca
             </button>
