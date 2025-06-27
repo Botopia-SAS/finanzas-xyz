@@ -31,7 +31,7 @@ export default function VerticalsList({ verticals, businessId, onVerticalDeleted
   // ✅ FUNCIÓN PARA ELIMINAR VERTICAL - CON MOVIMIENTOS
   const handleDeleteVertical = async (verticalId: string, verticalName: string) => {
     const confirmed = window.confirm(
-      `¿Estás seguro de que quieres eliminar "${verticalName}"?\n\n` +
+      `¿Estás seguro de que quieres eliminar &quot;${verticalName}&quot;?\n\n` +
       `ATENCIÓN: Esto también eliminará TODOS los movimientos y producciones asociados.\n\n` +
       `Esta acción no se puede deshacer.`
     );
@@ -77,9 +77,12 @@ export default function VerticalsList({ verticals, businessId, onVerticalDeleted
       // Refrescar la lista
       onVerticalDeleted?.();
       
-    } catch (err: any) {
+    } catch (err: unknown) { // ✅ CAMBIO: any -> unknown
       console.error("❌ Error completo eliminando:", err);
-      alert(`Error al eliminar: ${err.message || 'Error desconocido'}`);
+      
+      // ✅ TYPE GUARD PARA ERROR
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      alert(`Error al eliminar: ${errorMessage}`);
     } finally {
       setDeletingId(null);
     }
@@ -98,7 +101,7 @@ export default function VerticalsList({ verticals, businessId, onVerticalDeleted
               No hay verticales creados
             </h3>
             <p className="text-sm sm:text-base text-gray-600">
-              Usa el botón "Agregar vertical" de arriba para comenzar
+              Usa el botón &quot;Agregar vertical&quot; de arriba para comenzar
             </p>
           </div>
         </CardContent>

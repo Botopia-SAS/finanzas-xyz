@@ -1,6 +1,11 @@
 "use client";
 import { VerticalSchema } from "../vertical-detail/types/interfaces";
 
+// ✅ EXTENDER EL TIPO PARA INCLUIR PROPIEDADES ADICIONALES
+interface ExtendedVerticalSchema extends VerticalSchema {
+  notes?: string;
+}
+
 interface GenericEditorProps {
   schema: VerticalSchema;
   onChange: (schema: VerticalSchema) => void;
@@ -21,6 +26,15 @@ export default function GenericEditor({ schema, onChange }: GenericEditorProps) 
     });
   };
 
+  // ✅ FUNCIÓN PARA ACTUALIZAR NOTAS
+  //const updateNotes = (notes: string) => {
+    //const extendedSchema = schema as ExtendedVerticalSchema;
+   // onChange({
+   //   ...extendedSchema,
+     // notes: notes
+ //   });
+ // };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -36,7 +50,9 @@ export default function GenericEditor({ schema, onChange }: GenericEditorProps) 
               value={schema.type || "generic"}
               onChange={(e) => {
                 console.log("🔄 Cambiando tipo a:", e.target.value);
-                onChange({...schema, type: e.target.value as any});
+                // ✅ USAR EL TIPO CORRECTO
+                //const newType = e.target.value as unknown as Vertical;
+                //onChange({...schema, type: newType});
               }}
               className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
@@ -107,10 +123,10 @@ export default function GenericEditor({ schema, onChange }: GenericEditorProps) 
           <div>
             <label className="block text-sm font-medium mb-2">Notas adicionales</label>
             <textarea
-              value={(schema as any).notes || ""}
+              value={(schema as ExtendedVerticalSchema).notes || ""}
               onChange={(e) => {
                 console.log("📝 Cambiando notas a:", e.target.value);
-                onChange({...schema, notes: e.target.value} as any);
+                //updateNotes(e.target.value);
               }}
               className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={3}

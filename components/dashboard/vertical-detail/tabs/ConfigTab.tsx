@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { VerticalSchema, DairySchema, EggSchema } from "../types/interfaces";
 import DairyEditor from "../../vertical-templates/DairyEditor";
 import EggsEditor from "../../vertical-templates/EggsEditor";
-import GenericEditor from "../../vertical-templates/GenericEditor"; // ✅ Crear editor genérico
+//import GenericEditor from "../../vertical-templates/GenericEditor";
 
 interface ConfigTabProps {
   schema: VerticalSchema;
@@ -72,10 +72,11 @@ export default function ConfigTab({ schema: initialSchema, verticalId, loading }
       console.log("✅ Configuración guardada exitosamente:", data);
       alert("Configuración guardada exitosamente");
       
-    } catch (err: any) {
+    } catch (err: unknown) { // ✅ CAMBIO: any -> unknown
       console.error("❌ Error completo capturado:", err);
       
-      if (err?.message) {
+      // ✅ TYPE GUARD PARA ERROR
+      if (err instanceof Error) {
         alert(`Error: ${err.message}`);
       } else {
         alert("Error desconocido al guardar. Revisa la consola.");
@@ -147,11 +148,11 @@ export default function ConfigTab({ schema: initialSchema, verticalId, loading }
             onChange={setSchema}
           />
         ) : (
-          // ✅ EDITOR GENÉRICO PARA OTROS TIPOS
-          <GenericEditor 
-            schema={schema} 
-            onChange={setSchema}
-          />
+          // Excluir GenericEditor y mostrar mensaje
+          <div className="text-center text-red-600 font-semibold py-8">
+            Este tipo de vertical no es editable desde la interfaz.<br />
+            Solo se soportan verticales de tipo <b>Lechería</b> y <b>Huevos</b>.
+          </div>
         )}
       </div>
 

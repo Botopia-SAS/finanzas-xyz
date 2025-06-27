@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 // ✅ ACTUALIZAR EL TIPO Template
 export type Template = {
@@ -12,7 +11,7 @@ export type Template = {
     unit?: string; 
     price?: number; 
     type?: string;
-    [key: string]: any; // Para permitir otras propiedades
+    [key: string]: unknown; // ✅ CAMBIO: any -> unknown
   };
 };
 
@@ -25,9 +24,6 @@ export default function VerticalForm({
   businessId,
   onCreated,
 }: FormProps) {
-  const supabase = createBrowserClient();
-  const router = useRouter();
-  
   // Estados - SIN estimated
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState("");
@@ -37,29 +33,31 @@ export default function VerticalForm({
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ CARGAR PLANTILLAS REALES
-  useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("verticals")
-          .select("*")
-          .eq("is_template", true)
-          .order("name", { ascending: true });
+  // ✅ USAR useCallback PARA ESTABILIZAR LA FUNCIÓN
+  const loadTemplates = useCallback(async () => {
+    try {
+      const supabase = createBrowserClient();
+      const { data, error } = await supabase
+        .from("verticals")
+        .select("*")
+        .eq("is_template", true)
+        .order("name", { ascending: true });
 
-        if (error) {
-          console.error("Error cargando plantillas:", error);
-        } else {
-          console.log("🔥 Plantillas cargadas:", data);
-          setTemplates(data || []);
-        }
-      } catch (err) {
-        console.error("Error:", err);
+      if (error) {
+        console.error("Error cargando plantillas:", error);
+      } else {
+        console.log("🔥 Plantillas cargadas:", data);
+        setTemplates(data || []);
       }
-    };
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  }, []); // ✅ Sin dependencias porque no usa variables externas
 
+  // ✅ CARGAR PLANTILLAS CON DEPENDENCIA ESTABLE
+  useEffect(() => {
     loadTemplates();
-  }, []);
+  }, [loadTemplates]);
 
   // ✅ FORMATEAR NÚMEROS CON PUNTOS
   const formatNumber = (value: string) => {
@@ -81,10 +79,10 @@ export default function VerticalForm({
       
       // ✅ LEER PRECIO DEL JSON variables_schema
       const schema = tpl.variables_schema;
-      setUnit(schema?.unit || "");
+      setUnit(typeof schema?.unit === 'string' ? schema.unit : "");
       
       // Convertir precio decimal a entero para mostrar (1.5 -> 150)
-      const priceInCents = schema?.price ? Math.round(schema.price * 100) : 0;
+      const priceInCents = typeof schema?.price === 'number' ? Math.round(schema.price * 100) : 0;
       setPrice(priceInCents > 0 ? formatNumber(priceInCents.toString()) : "");
     } else {
       setName("");
@@ -125,7 +123,7 @@ export default function VerticalForm({
       // Si viene de plantilla, usar su tipo
       if (templateId) {
         const template = templates.find(t => t.id === templateId);
-        if (template?.variables_schema?.type) {
+        if (template?.variables_schema?.type && typeof template.variables_schema.type === 'string') {
           verticalType = template.variables_schema.type;
         }
       }
@@ -137,7 +135,7 @@ export default function VerticalForm({
         variables_schema: {
           unit: unit.trim() || null,
           price: priceNumber,
-          type: verticalType, // ✅ USAR TIPO CORRECTO
+          type: verticalType,
           inventory: {
             total: 0,
             items: []
@@ -145,7 +143,7 @@ export default function VerticalForm({
         }
       });
 
-      // ✅ ESTRUCTURA CORRECTA
+      const supabase = createBrowserClient();
       const { data, error } = await supabase
         .from("verticals")
         .insert([
@@ -156,7 +154,7 @@ export default function VerticalForm({
             variables_schema: {
               unit: unit.trim() || null,
               price: priceNumber,
-              type: verticalType, // ✅ NO "custom"
+              type: verticalType,
               inventory: {
                 total: 0,
                 items: []
@@ -186,9 +184,15 @@ export default function VerticalForm({
       // Cerrar modal
       onCreated?.();
       
-    } catch (err: any) {
+    } catch (err: unknown) { // ✅ CAMBIO: any -> unknown
       console.error("❌ Error completo capturado:", err);
-      alert(`Error: ${err?.message || 'Error desconocido'}`);
+      
+      // ✅ TYPE GUARD PARA ERROR
+      if (err instanceof Error) {
+        alert(`Error: ${err.message}`);
+      } else {
+        alert('Error desconocido');
+      }
     } finally {
       setLoading(false);
     }
