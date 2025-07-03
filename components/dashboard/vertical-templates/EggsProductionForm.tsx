@@ -135,8 +135,12 @@ export default function EggsProductionForm({
     setTypeProduction(newTypeProduction);
   };
 
+  // Formato de moneda COP autotipado
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 2 });
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <div>
         <label className="block text-sm font-medium mb-1">Total de huevos producidos</label>
         <input
@@ -148,49 +152,65 @@ export default function EggsProductionForm({
           required
         />
       </div>
-      
+
       {schema.templateConfig.trackByType && schema.productionTypes.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
             <h3 className="text-sm font-medium">Producción por tipo</h3>
-            <button 
+            <button
               type="button"
               onClick={assignByPercentage}
-              className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded"
+              className="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded w-fit"
             >
               Distribuir automáticamente
             </button>
           </div>
-          
-          <div className="space-y-2 max-h-40 overflow-y-auto p-1">
-            {schema.productionTypes
-              .filter(eggType => eggType.active !== false)
-              .map(eggType => (
-              <div key={eggType.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                <div>
-                  <span className="font-medium">{eggType.name}</span>
-                  <span className="ml-2 text-xs text-green-600 font-bold">
-                    ${eggType.price.toFixed(2)} c/u
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="number"
-                    value={typeProduction[eggType.id] || 0}
-                    onChange={(e) => updateTypeProduction(eggType.id, Number(e.target.value))}
-                    className="w-24 border rounded p-1 text-right"
-                    min="0"
-                  />
-                  <span className="ml-1 text-gray-500">unidades</span>
-                  <span className="ml-2 text-xs text-blue-600 font-medium">
-                    = ${((typeProduction[eggType.id] || 0) * eggType.price).toFixed(2)}
-                  </span>
-                </div>
+
+          {/* Responsive tabla-like layout */}
+          <div className="w-full overflow-x-auto">
+            <div className="min-w-[540px]">
+              <div className="grid grid-cols-5 gap-2 px-2 pb-1 text-xs text-gray-500 bg-gray-100 rounded">
+                <div>Tipo</div>
+                <div>Precio</div>
+                <div>Cantidad</div>
+                <div>Unidades</div>
+                <div>Total</div>
               </div>
-            ))}
+              {schema.productionTypes
+                .filter(eggType => eggType.active !== false)
+                .map(eggType => (
+                  <div
+                    key={eggType.id}
+                    className="grid grid-cols-5 gap-2 items-center bg-gray-50 rounded px-2 py-2"
+                  >
+                    {/* Tipo */}
+                    <div className="font-medium text-sm truncate">{eggType.name}</div>
+                    {/* Precio */}
+                    <div className="text-green-600 font-bold text-xs whitespace-nowrap">
+                      {formatCurrency(eggType.price)} <span className="font-normal text-xs">c/u</span>
+                    </div>
+                    {/* Cantidad */}
+                    <div>
+                      <input
+                        type="number"
+                        value={typeProduction[eggType.id] || 0}
+                        onChange={(e) => updateTypeProduction(eggType.id, Number(e.target.value))}
+                        className="w-full border rounded p-1 text-right"
+                        min="0"
+                      />
+                    </div>
+                    {/* Unidades */}
+                    <div className="text-xs text-gray-500 text-center">unidades</div>
+                    {/* Total */}
+                    <div className="text-blue-700 font-semibold text-xs text-right whitespace-nowrap">
+                      {formatCurrency((typeProduction[eggType.id] || 0) * eggType.price)}
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
-          
-          <div className="flex items-center justify-between mt-2 p-2 bg-gray-100 rounded text-sm">
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 p-2 bg-gray-100 rounded text-sm gap-2">
             <span>Total asignado:</span>
             <span className="font-bold">
               {Object.values(typeProduction).reduce((sum, val) => sum + val, 0)} unidades
@@ -203,20 +223,6 @@ export default function EggsProductionForm({
           </div>
         </div>
       )}
-      
-      <div className="p-3 bg-blue-50 rounded border border-blue-200">
-        <div className="flex justify-between items-center">
-          <span className="font-medium text-blue-700">Valor total estimado:</span>
-          <span className="text-xl font-bold text-blue-800">
-            ${calculateTotalValue().toFixed(2)}
-          </span>
-        </div>
-        {schema.templateConfig.trackByType && schema.productionTypes.length > 0 && (
-          <div className="mt-2 text-xs text-blue-600">
-            Calculado con precios específicos por tipo
-          </div>
-        )}
-      </div>
     </div>
   );
 }

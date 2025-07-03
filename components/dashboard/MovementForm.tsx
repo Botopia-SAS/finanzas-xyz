@@ -127,10 +127,19 @@ interface DairyProductionData {
   by_animal?: CowProductionEntry[];
 }
 
+// Función para obtener la fecha local de Colombia (GMT-5)
+function getColombiaDateString() {
+  const now = new Date();
+  // Ajusta la hora a GMT-5 (Colombia)
+  now.setHours(now.getHours() - 5);
+  return now.toISOString().slice(0, 10);
+}
+
 export default function MovementForm({ businessId, onComplete, movement }: MovementFormProps) {
   // ✅ TODOS los hooks deben estar aquí, al nivel superior
   const [verticals, setVerticals] = useState<Vertical[]>([]);
-  const [date, setDate] = useState(movement?.date || new Date().toISOString().slice(0, 10));
+  // Usa la fecha de Colombia por defecto si no hay movimiento
+  const [date, setDate] = useState(movement?.date || getColombiaDateString());
   const [loading, setLoading] = useState(false);
   const [description, setDescription] = useState(movement?.description || "");
   const [productionData, setProductionData] = useState<ProductionData | null>(null);
@@ -439,8 +448,12 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
     }
   };
 
+  // Agrega esta función arriba, cerca de tus hooks:
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 2 });
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full">
       {/* Selector de fecha */}
       <div>
         <label className="block text-sm font-medium mb-1">Fecha</label>
@@ -578,30 +591,28 @@ export default function MovementForm({ businessId, onComplete, movement }: Movem
       )}
 
       {/* ✅ Mostrar el total calculado */}
-      <div className={`p-3 rounded border ${
+      <div className={`p-3 rounded border w-full flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 ${
         movementType === "ingreso" 
           ? "bg-green-50 border-green-200" 
           : "bg-red-50 border-red-200"
       }`}>
-        <div className="flex justify-between items-center">
-          <span className={`font-medium ${
-            movementType === "ingreso" ? "text-green-700" : "text-red-700"
-          }`}>
-            Total {movementType === "ingreso" ? "Ingreso" : "Gasto"}:
-          </span>
-          <span className={`text-xl font-bold ${
-            movementType === "ingreso" ? "text-green-800" : "text-red-800"
-          }`}>
-            ${Math.abs(amount).toFixed(2)}
-          </span>
-        </div>
+        <span className={`font-medium ${
+          movementType === "ingreso" ? "text-green-700" : "text-red-700"
+        }`}>
+          Total {movementType === "ingreso" ? "Ingreso" : "Gasto"}:
+        </span>
+        <span className={`text-xl font-bold ${
+          movementType === "ingreso" ? "text-green-800" : "text-red-800"
+        }`}>
+          {formatCurrency(Math.abs(amount))}
+        </span>
         {selV && (
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-xs text-gray-600 mt-1 sm:mt-0">
             Relacionado con: <strong>{chosen?.name}</strong>
           </p>
         )}
         {movementType === "gasto" && expenseCategory && (
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-xs text-gray-600 mt-1 sm:mt-0">
             Categoría: <strong>{expenseCategory.charAt(0).toUpperCase() + expenseCategory.slice(1).replace('_', ' ')}</strong>
           </p>
         )}

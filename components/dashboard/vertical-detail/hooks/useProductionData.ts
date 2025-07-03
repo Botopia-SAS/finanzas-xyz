@@ -251,3 +251,5 @@ function getQuantityFromMovement(movement: Movement, schema: VerticalSchema): nu
   console.log("❓ Unknown schema type:", schema.type);
   return 0;
 }
+
+// Removed misplaced allVerticalMovements useMemo that referenced out-of-scope variables.

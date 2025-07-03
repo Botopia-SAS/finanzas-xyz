@@ -1,3 +1,4 @@
+import React from "react";
 import { VerticalSchema, Vertical, Movement } from "../types/interfaces";
 import ProductionChart from "../components/ProductionChart";
 import ProductionFilters from "../components/ProductionFilters";
@@ -22,6 +23,7 @@ interface DairyStats {
   totalProduction: number;
   averageProductionPerCow: number;
   totalRevenue: number;
+  profitability: number; // <-- Agrega esto
 }
 
 export default function OverviewTab({ vertical, schema, movements }: OverviewTabProps) {
@@ -35,6 +37,11 @@ export default function OverviewTab({ vertical, schema, movements }: OverviewTab
     clearFilters
   } = useProductionData(schema, movements, vertical);
 
+  // ✅ Agregar todos los movimientos de la vertical (ingresos y gastos)
+  const allVerticalMovements = React.useMemo(() => {
+    return movements.filter(m => m.vertical_id === vertical.id);
+  }, [movements, vertical.id]);
+
   // ✅ Debug: Agregar logs para diagnosticar
   console.log("=== DEBUG OVERVIEW TAB ===");
   console.log("Total movements:", movements.length);
@@ -47,6 +54,9 @@ export default function OverviewTab({ vertical, schema, movements }: OverviewTab
     m.type === 'ingreso' && 
     m.production_data
   ));
+  console.log("Filtered Movements:", filteredMovements);
+  console.log("Gastos:", filteredMovements.filter(m => m.type === 'gasto'));
+  console.log("Ingresos:", filteredMovements.filter(m => m.type === 'ingreso'));
 
   // Calcular estadísticas específicas para huevos - CORREGIDO
   const calculateEggStats = (): EggStats => {
@@ -93,83 +103,98 @@ export default function OverviewTab({ vertical, schema, movements }: OverviewTab
   // Calcular estadísticas específicas para lechería
   const calculateDairyStats = (): DairyStats => {
     if (schema.type !== 'dairy') {
-      return { averagePrice: 0, totalProduction: 0, averageProductionPerCow: 0, totalRevenue: 0 };
+      return { averagePrice: 0, totalProduction: 0, averageProductionPerCow: 0, totalRevenue: 0, profitability: 0 };
     }
 
-    console.log("🥛 Calculating dairy stats...");
-    console.log("Filtered movements for dairy:", filteredMovements);
-
     const totalLiters = filteredMovements.reduce((sum, m) => {
-      const liters = Number(m.production_data?.total_liters || 0);
-      console.log(`🥛 Adding ${liters} liters from movement ${m.id}`);
-      return sum + liters;
+      return sum + Number(m.production_data?.total_liters || 0);
     }, 0);
 
-    const totalRevenue = filteredMovements.reduce((sum, m) => {
-      console.log(`💰 Adding $${m.amount} revenue from movement ${m.id}`);
-      return sum + Number(m.amount || 0);
-    }, 0);
+    // ⚠️ Cambiar a allVerticalMovements para rentabilidad
+    const totalRevenue = allVerticalMovements
+      .filter(m => m.type === 'ingreso')
+      .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+
+    const totalExpenses = allVerticalMovements
+      .filter(m => m.type === 'gasto')
+      .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
     const averagePrice = totalLiters > 0 ? totalRevenue / totalLiters : Number(schema.price || 0);
     
     const totalCows = schema.inventory?.items?.filter(cow => cow.inProduction !== false).length || 1;
     const averageProductionPerCow = totalCows > 0 ? totalLiters / totalCows : 0;
 
-    console.log("🥛 Dairy stats calculated:", {
-      totalLiters,
-      totalRevenue,
-      averagePrice,
-      totalCows,
-      averageProductionPerCow
-    });
+    // Rentabilidad: (ingresos + gastos) / |gastos| * 100
+    const profitability = totalExpenses !== 0
+      ? ((totalRevenue + totalExpenses) / Math.abs(totalExpenses)) * 100
+      : 0;
+
+    console.log("=== Rentabilidad Debug ===");
+    console.log("Total ingresos:", totalRevenue);
+    console.log("Total gastos:", totalExpenses);
+    console.log("Rentabilidad calculada:", profitability);
 
     return {
       averagePrice,
       totalProduction: totalLiters,
       averageProductionPerCow,
-      totalRevenue
+      totalRevenue,
+      profitability
     };
   };
 
   const eggStats = calculateEggStats();
   const dairyStats = calculateDairyStats();
 
+  // Calcula el promedio diario de rentabilidad (igual que en la tabla)
+  const avgDailyProfitability = React.useMemo(() => {
+    if (schema.type !== 'eggs' || filteredMovements.length === 0) return 0;
+    const totalHens = Number(schema.inventory?.total || 1);
+    return (
+      filteredMovements.reduce((sum, m) => {
+        const eggs = Number(m.production_data?.total_eggs || 0);
+        return sum + (totalHens > 0 ? eggs / totalHens : 0);
+      }, 0) / filteredMovements.length
+    );
+  }, [schema, filteredMovements]);
+
   // Renderizar estadísticas específicas según el tipo
   const renderSpecificStats = () => {
+    // Utilidad: función para formatear dinero con separador de miles y símbolo
+    const formatCurrency = (value: number) =>
+      value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 2 });
+
     if (schema.type === 'eggs') {
       return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Precio Promedio</h3>
-            <p className="text-2xl font-bold text-yellow-600">
-              ${eggStats.averagePrice.toFixed(2)}
+            <p className="text-2xl font-bold text-orange-600">
+              {formatCurrency(eggStats.averagePrice)}
             </p>
             <p className="text-xs text-gray-500">por huevo</p>
-            {/* ✅ Debug info */}
             <p className="text-xs text-gray-400 mt-1">
-              Debug: ${eggStats.totalRevenue} / {eggStats.totalProduction} huevos
+              Debug: {formatCurrency(eggStats.totalRevenue)} / {eggStats.totalProduction} huevos
             </p>
           </div>
 
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Producción Total</h3>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-cyan-600">
               {eggStats.totalProduction.toLocaleString()}
             </p>
             <p className="text-xs text-gray-500">huevos producidos</p>
-            {/* ✅ Debug info */}
             <p className="text-xs text-gray-400 mt-1">
               Debug: {movements.filter(m => m.vertical_id === vertical.id && m.production_data).length} registros
             </p>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Rentabilidad</h3>
-            <p className="text-2xl font-bold text-blue-600">
-              {eggStats.profitability.toFixed(1)}
+            <p className="text-2xl font-bold text-green-600">
+              {avgDailyProfitability.toFixed(2)}
             </p>
             <p className="text-xs text-gray-500">huevos por gallina</p>
-            {/* ✅ Debug info */}
             <p className="text-xs text-gray-400 mt-1">
               Debug: {eggStats.totalProduction} huevos / {schema.inventory?.total || 0} gallinas
             </p>
@@ -181,28 +206,28 @@ export default function OverviewTab({ vertical, schema, movements }: OverviewTab
     if (schema.type === 'dairy') {
       return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Precio Promedio</h3>
-            <p className="text-2xl font-bold text-blue-600">
-              ${dairyStats.averagePrice.toFixed(2)}
+            <p className="text-2xl font-bold text-orange-600">
+              {formatCurrency(dairyStats.averagePrice)}
             </p>
             <p className="text-xs text-gray-500">por litro</p>
           </div>
 
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
             <h3 className="text-sm font-medium text-gray-600 mb-1">Producción Total</h3>
-            <p className="text-2xl font-bold text-green-600">
-              {dairyStats.totalProduction.toFixed(1)} L
+            <p className="text-2xl font-bold text-cyan-600">
+              {dairyStats.totalProduction.toLocaleString()} L
             </p>
             <p className="text-xs text-gray-500">litros producidos</p>
           </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Promedio por Vaca</h3>
-            <p className="text-2xl font-bold text-purple-600">
-              {dairyStats.averageProductionPerCow.toFixed(1)} L
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <h3 className="text-sm font-medium text-gray-600 mb-1">Rentabilidad</h3>
+            <p className="text-2xl font-bold text-green-600">
+              {dairyStats.profitability.toFixed(1)}%
             </p>
-            <p className="text-xs text-gray-500">por vaca activa</p>
+            <p className="text-xs text-gray-500">según ingresos y gastos</p>
           </div>
         </div>
       );
@@ -213,29 +238,7 @@ export default function OverviewTab({ vertical, schema, movements }: OverviewTab
 
   return (
     <div className="space-y-6">
-      {/* ✅ Debug panel - TEMPORAL para diagnosticar */}
-      <div className="bg-red-50 p-4 rounded border border-red-200">
-        <h4 className="font-bold text-red-800 mb-2">🐛 Debug Info (Temporal)</h4>
-        <div className="text-xs space-y-1">
-          <p><strong>Total movements:</strong> {movements.length}</p>
-          <p><strong>Vertical ID:</strong> {vertical.id}</p>
-          <p><strong>Schema type:</strong> {schema.type}</p>
-          <p><strong>Total gallinas:</strong> {schema.inventory && 'total' in schema.inventory ? schema.inventory.total : (schema.inventory?.items?.length || 0)}</p>
-          <p><strong>Movements for this vertical:</strong> {movements.filter(m => m.vertical_id === vertical.id).length}</p>
-          <p><strong>Production movements:</strong> {movements.filter(m => 
-            m.vertical_id === vertical.id && 
-            m.type === 'ingreso' && 
-            m.production_data
-          ).length}</p>
-          <details className="mt-2">
-            <summary className="cursor-pointer font-medium">Ver movimientos completos</summary>
-            <pre className="mt-1 text-xs bg-white p-2 rounded overflow-auto max-h-40">
-              {JSON.stringify(movements.filter(m => m.vertical_id === vertical.id), null, 2)}
-            </pre>
-          </details>
-        </div>
-      </div>
-
+      
       {/* Estadísticas específicas por tipo */}
       {renderSpecificStats()}
 
@@ -301,20 +304,51 @@ function EnhancedProductionTable({ filteredMovements, schema, stats }: EnhancedP
     );
   }
 
-  // Resto del componente igual...
+  // --- Funciones auxiliares deben ir antes de usarlas ---
   const calculateDailyProfitability = (movement: Movement): number => {
     if (schema.type !== 'eggs' || !movement.production_data?.total_eggs) return 0;
-    
     const totalHens = schema.inventory?.total || 1;
     return (movement.production_data.total_eggs / totalHens);
   };
 
   const calculateProductionPerCow = (movement: Movement): number => {
     if (schema.type !== 'dairy' || !movement.production_data?.total_liters) return 0;
-    
     const activeCows = schema.inventory?.items?.filter(cow => cow.inProduction !== false).length || 1;
     return (movement.production_data.total_liters / activeCows);
   };
+
+  // --- Diccionario de ID a nombre de tipo de huevo ---
+  let eggTypes: string[] = [];
+  const eggTypeNames: Record<string, string> = {}; // prefer-const
+
+  if (schema.type === 'eggs') {
+    const typeSet = new Set<string>();
+    // 1. Construir diccionario id->nombre desde la config
+    const templateConfigWithTypes = schema.templateConfig as { types?: { id: string; name: string }[] };
+    if (templateConfigWithTypes?.types && Array.isArray(templateConfigWithTypes.types)) {
+      templateConfigWithTypes.types.forEach((t: { id: string; name: string }) => { // especificar tipo
+        if (t.id && t.name) eggTypeNames[t.id] = t.name;
+      });
+    }
+    // 2. Detectar tipos presentes en los movimientos
+    filteredMovements.forEach(m => {
+      if (m.production_data?.by_type && typeof m.production_data.by_type === 'object') {
+        Object.keys(m.production_data.by_type).forEach(typeId => {
+          typeSet.add(typeId);
+        });
+      }
+    });
+    eggTypes = Array.from(typeSet);
+  }
+
+  // --- Calcular promedio diario de rentabilidad ---
+  const avgProfitability = filteredMovements.length > 0
+    ? filteredMovements.reduce((sum, m) => sum + calculateDailyProfitability(m), 0) / filteredMovements.length
+    : 0;
+
+  // --- Formatear como moneda ---
+  const formatCurrency = (value: number) =>
+    value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 2 });
 
   return (
     <div className="overflow-x-auto">
@@ -323,6 +357,12 @@ function EnhancedProductionTable({ filteredMovements, schema, stats }: EnhancedP
           <tr className="bg-gray-100">
             <th className="p-3 text-left font-medium">Fecha</th>
             <th className="p-3 text-right font-medium">Cantidad</th>
+            {/* Mostrar nombre del tipo de huevo */}
+            {schema.type === 'eggs' && eggTypes.map(typeId => (
+              <th key={typeId} className="p-3 text-right font-medium">
+                {eggTypeNames[typeId] || typeId}
+              </th>
+            ))}
             <th className="p-3 text-right font-medium">Precio Unitario</th>
             <th className="p-3 text-right font-medium">Ingreso</th>
             <th className="p-3 text-right font-medium">
@@ -341,12 +381,24 @@ function EnhancedProductionTable({ filteredMovements, schema, stats }: EnhancedP
               }
               return 0;
             })();
-            
+
+            // Cantidad por tipo de huevo
+            const typeQuantities: Record<string, number> = {}; // prefer-const
+            if (
+              schema.type === 'eggs' &&
+              movement.production_data?.by_type &&
+              typeof movement.production_data.by_type === 'object'
+            ) {
+              Object.entries(movement.production_data.by_type).forEach(([typeId, qty]) => {
+                typeQuantities[typeId] = qty as number;
+              });
+            }
+
             const unitPrice = quantity > 0 ? movement.amount / quantity : schema.price;
-            const profitability = schema.type === 'eggs' 
+            const profitability = schema.type === 'eggs'
               ? calculateDailyProfitability(movement)
               : calculateProductionPerCow(movement);
-            
+
             return (
               <tr key={movement.id} className="border-t hover:bg-gray-50">
                 <td className="p-3">
@@ -359,21 +411,27 @@ function EnhancedProductionTable({ filteredMovements, schema, stats }: EnhancedP
                 <td className="p-3 text-right font-medium">
                   {quantity.toFixed(1)} {schema.unit}
                 </td>
+                {/* Mostrar cantidad por tipo de huevo */}
+                {schema.type === 'eggs' && eggTypes.map(typeId => (
+                  <td key={typeId} className="p-3 text-right">
+                    {typeQuantities[typeId] !== undefined ? typeQuantities[typeId] : 0}
+                  </td>
+                ))}
                 <td className="p-3 text-right">
                   ${unitPrice.toFixed(2)}
                 </td>
                 <td className="p-3 text-right font-medium text-green-600">
-                  ${movement.amount.toFixed(2)}
+                  {formatCurrency(movement.amount)}
                 </td>
                 <td className="p-3 text-right">
                   <span className={`font-medium ${
-                    profitability > (schema.type === 'eggs' ? 0.8 : 15) 
-                      ? 'text-green-600' 
-                      : profitability > (schema.type === 'eggs' ? 0.5 : 10)
+                    profitability > 0.8
+                      ? 'text-green-600'
+                      : profitability > 0.5
                       ? 'text-yellow-600'
                       : 'text-red-600'
                   }`}>
-                    {schema.type === 'eggs' 
+                    {schema.type === 'eggs'
                       ? `${profitability.toFixed(2)} huevos/gallina`
                       : `${profitability.toFixed(1)} L/vaca`
                     }
@@ -389,15 +447,29 @@ function EnhancedProductionTable({ filteredMovements, schema, stats }: EnhancedP
             <td className="p-3 text-right font-bold">
               {stats.totalProduction.toFixed(1)} {schema.unit}
             </td>
+            {/* Totales por tipo de huevo */}
+            {schema.type === 'eggs' && eggTypes.map(typeId => {
+              const totalType = filteredMovements.reduce((sum, m) => {
+                if (m.production_data?.by_type && typeof m.production_data.by_type === 'object') {
+                  return sum + (m.production_data.by_type[typeId] || 0);
+                }
+                return sum;
+              }, 0);
+              return (
+                <td key={typeId} className="p-3 text-right font-bold">
+                  {totalType}
+                </td>
+              );
+            })}
             <td className="p-3 text-right font-bold">
-              ${stats.averagePrice.toFixed(2)}
+              {formatCurrency(stats.averagePrice)}
             </td>
             <td className="p-3 text-right font-bold text-green-600">
-              ${stats.totalRevenue.toFixed(2)}
+              {formatCurrency(stats.totalRevenue)}
             </td>
             <td className="p-3 text-right font-bold">
-              {schema.type === 'eggs' 
-                ? `${(stats.totalProduction / (schema.inventory?.total || 1)).toFixed(2)} promedio`
+              {schema.type === 'eggs'
+                ? `${avgProfitability.toFixed(2)} promedio`
                 : `${(stats.totalProduction / (schema.inventory?.items?.filter(c => c.inProduction !== false).length || 1)).toFixed(1)} promedio`
               }
             </td>

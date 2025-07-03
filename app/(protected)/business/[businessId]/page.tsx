@@ -122,8 +122,11 @@ export default function BusinessDashboardPage() {
           const gastos = allMovements
             .filter((m: Movement) => m.type === "gasto")
             .reduce((sum: number, m: Movement) => sum + m.amount, 0);
-          
-          const rentabilidad = gastos > 0 ? Math.round((ingresos - gastos) / gastos * 100) : 0;
+
+          // ✅ Rentabilidad correcta: (ingresos + gastos) / |gastos| * 100
+          const rentabilidad = gastos !== 0
+            ? Math.round(((ingresos + gastos) / Math.abs(gastos)) * 100)
+            : 0;
           
           setMetrics({
             ingresos,
@@ -471,8 +474,9 @@ export default function BusinessDashboardPage() {
                       ? prev.gastos + newMovement.amount 
                       : prev.gastos;
                       
-                    const newRentabilidad = newGastos > 0 
-                      ? Math.round((newIngresos - newGastos) / newGastos * 100) 
+                    // ✅ Rentabilidad correcta: (ingresos + gastos) / |gastos| * 100
+                    const newRentabilidad = newGastos !== 0 
+                      ? Math.round(((newIngresos + newGastos) / Math.abs(newGastos)) * 100) 
                       : 0;
                       
                     return {

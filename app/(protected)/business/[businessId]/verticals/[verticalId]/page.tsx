@@ -1,7 +1,6 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { createClient } from "@/lib/supabase/server";
 import VerticalDetail from "@/components/dashboard/VerticalDetail";
-import Link from "next/link";
 
 export default async function VerticalDetailPage({
   params,
@@ -9,7 +8,7 @@ export default async function VerticalDetailPage({
   params: Promise<{ businessId: string; verticalId: string }> // ✅ Cambiar a Promise
 }) {
   // ✅ Await the params
-  const { businessId, verticalId } = await params;
+  const {  verticalId } = await params;
 
   const supabase = await createClient();
   const { data: vertical } = await supabase
@@ -27,17 +26,6 @@ export default async function VerticalDetailPage({
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <Link
-          href={`/business/${businessId}/verticals`}
-          className="text-blue-600 hover:underline mb-2 inline-block"
-        >
-          &larr; Volver a verticales
-        </Link>
-        <h1 className="text-2xl font-bold mt-2">
-          {vertical?.name || "Detalle de Vertical"}
-        </h1>
-      </div>
       <VerticalDetail
         vertical={vertical}
         movements={movements || []}
