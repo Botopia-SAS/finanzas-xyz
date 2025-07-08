@@ -7,6 +7,9 @@ import {
   Line,
   AreaChart,
   Area,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,85 +30,130 @@ interface ChartProps {
   period: "today" | "month" | "year" | "custom";
 }
 
-type ChartType = "bar" | "line" | "area";
+type ChartType = "bar" | "line" | "area" | "pie";
 
 // Nombre de meses abreviados
 const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const COLORS = ["#38A169", "#3182CE", "#E53E3E", "#805AD5", "#ECC94B", "#319795"];
 
 export default function BusinessChart({ movements, period }: ChartProps) {
-  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [chartType, setChartType] = useState<ChartType | "pie">("bar");
 
-  // Procesamos los datos para el gráfico
+  // Agrupación y filtrado según periodo
   const chartData = useMemo(() => {
-    try {
-      // Verificar que movements sea un array
-      if (!Array.isArray(movements)) {
-        console.error("Los movimientos no son un array válido:", movements);
-        return [];
-      }
+    if (!Array.isArray(movements)) return [];
 
-      // Filtramos los movimientos según el periodo seleccionado
-      let filteredMovements = movements;
-      
-      // Aplicamos filtros adicionales según el periodo seleccionado
-      if (period === "today") {
-        const today = new Date().toISOString().split('T')[0];
-        filteredMovements = movements.filter(mov => mov.date === today);
-      }
-      // Para otros periodos, los datos ya vienen filtrados desde el componente padre
+    let filteredMovements = movements;
+    const today = new Date().toISOString().split('T')[0];
 
-      // Filtrar solo los elementos que tengan fecha y monto válido
-      const validMovements = filteredMovements.filter(mov => 
-        mov && mov.date && !isNaN(new Date(mov.date).getTime()) && 
-        typeof mov.amount === 'number' && !isNaN(mov.amount)
+    if (period === "today") {
+      filteredMovements = movements.filter(mov => mov.date === today);
+    } else if (period === "year") {
+      const year = new Date().getFullYear();
+      filteredMovements = movements.filter(mov => new Date(mov.date).getFullYear() === year);
+    } else if (period === "month") {
+      const now = new Date();
+      filteredMovements = movements.filter(mov =>
+        new Date(mov.date).getMonth() === now.getMonth() &&
+        new Date(mov.date).getFullYear() === now.getFullYear()
       );
+    }
 
-      // Agrupar movimientos por mes
-      const groupedByMonth = validMovements.reduce((acc, movement) => {
+    // Agrupar por mes para año, por día para mes, por hora para hoy
+    if (period === "year") {
+      const grouped = Array.from({ length: 12 }, (_, i) => ({
+        name: monthNames[i],
+        ingresos: 0,
+        gastos: 0,
+        balance: 0,
+      }));
+      filteredMovements.forEach(mov => {
+        const d = new Date(mov.date);
+        const idx = d.getMonth();
+        if (mov.type === "ingreso") grouped[idx].ingresos += mov.amount;
+        else grouped[idx].gastos += Math.abs(mov.amount); // <-- valor absoluto
+        grouped[idx].balance += mov.amount; // <-- suma directa
+      });
+      return grouped;
+    } else if (period === "month") {
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const grouped = Array.from({ length: daysInMonth }, (_, i) => ({
+        name: `${i + 1}`,
+        ingresos: 0,
+        gastos: 0,
+        balance: 0,
+      }));
+      filteredMovements.forEach(mov => {
+        const d = new Date(mov.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+          const idx = d.getDate() - 1;
+          if (mov.type === "ingreso") grouped[idx].ingresos += mov.amount;
+          else grouped[idx].gastos += Math.abs(mov.amount); // <-- valor absoluto
+          grouped[idx].balance += mov.amount; // <-- suma directa
+        }
+      });
+      return grouped;
+    } else if (period === "today") {
+      const grouped = Array.from({ length: 24 }, (_, i) => ({
+        name: `${i}:00`,
+        ingresos: 0,
+        gastos: 0,
+        balance: 0,
+      }));
+      filteredMovements.forEach(mov => {
+        const d = new Date(mov.date);
+        const idx = d.getHours();
+        if (mov.type === "ingreso") grouped[idx].ingresos += mov.amount;
+        else grouped[idx].gastos += Math.abs(mov.amount); // <-- valor absoluto
+        grouped[idx].balance += mov.amount; // <-- suma directa
+      });
+      return grouped;
+    } else {
+      // Custom: agrupar por mes
+      const groupedByMonth = filteredMovements.reduce<Record<string, { month: number; year: number; ingresos: number; gastos: number; balance: number }>>((acc, movement) => {
         const date = new Date(movement.date);
         const month = date.getMonth();
         const year = date.getFullYear();
         const key = `${year}-${month}`;
-
         if (!acc[key]) {
           acc[key] = {
             month,
             year,
             ingresos: 0,
             gastos: 0,
+            balance: 0,
           };
         }
-
-        if (movement.type === "ingreso") {
-          acc[key].ingresos += movement.amount;
-        } else {
-          acc[key].gastos += movement.amount;
-        }
-
+        if (movement.type === "ingreso") acc[key].ingresos += movement.amount;
+        else acc[key].gastos += Math.abs(movement.amount); // <-- valor absoluto
+        acc[key].balance += movement.amount; // <-- suma directa
         return acc;
-      }, {} as Record<string, { month: number; year: number; ingresos: number; gastos: number }>);
-
-      // Convertir a array y ordenar por fecha
+      }, {});
       return Object.values(groupedByMonth)
-        .sort((a, b) => {
-          if (a.year !== b.year) return a.year - b.year;
-          return a.month - b.month;
-        })
-        .map((item) => ({
+        .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month))
+        .map(item => ({
           name: monthNames[item.month],
           ingresos: item.ingresos,
           gastos: item.gastos,
-          balance: item.ingresos - item.gastos,
+          balance: item.balance,
         }));
-    } catch (error) {
-      console.error("Error procesando datos para el gráfico:", error);
-      return [];
     }
-  }, [movements, period]); // Añadimos period como dependencia
+  }, [movements, period]);
+
+  // Datos para torta (pie)
+  const pieData = useMemo(() => {
+    const ingresos = movements.filter(m => m.type === "ingreso").reduce((a, b) => a + b.amount, 0);
+    const gastos = movements.filter(m => m.type === "gasto").reduce((a, b) => a + Math.abs(b.amount), 0); // <-- valor absoluto
+    return [
+      { name: "Ingresos", value: ingresos },
+      { name: "Gastos", value: gastos },
+    ];
+  }, [movements]);
 
   // Formato para los valores monetarios
   const formatCurrency = (value: number) => {
-    return `$${value.toLocaleString()}`;
+    return `$${value.toLocaleString("es-CO")}`;
   };
 
   // Si no hay datos suficientes, mostramos un mensaje
@@ -120,36 +168,46 @@ export default function BusinessChart({ movements, period }: ChartProps) {
 
   // Selector de tipo de gráfico
   const renderChartTypeSelector = () => (
-    <div className="mb-4 flex justify-center space-x-4">
+    <div className="mb-4 flex flex-wrap justify-center gap-2">
       <button
         onClick={() => setChartType("bar")}
-        className={`px-3 py-1 rounded-full text-sm ${
-          chartType === "bar" 
-            ? "bg-blue-100 text-blue-700" 
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+          chartType === "bar"
+            ? "bg-orange-100 text-orange-700 shadow"
+            : "bg-gray-100 text-gray-600 hover:bg-orange-50"
         }`}
       >
         Barras
       </button>
       <button
         onClick={() => setChartType("line")}
-        className={`px-3 py-1 rounded-full text-sm ${
-          chartType === "line" 
-            ? "bg-blue-100 text-blue-700" 
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+          chartType === "line"
+            ? "bg-cyan-100 text-cyan-700 shadow"
+            : "bg-gray-100 text-gray-600 hover:bg-cyan-50"
         }`}
       >
         Líneas
       </button>
       <button
         onClick={() => setChartType("area")}
-        className={`px-3 py-1 rounded-full text-sm ${
-          chartType === "area" 
-            ? "bg-blue-100 text-blue-700" 
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+          chartType === "area"
+            ? "bg-green-100 text-green-700 shadow"
+            : "bg-gray-100 text-gray-600 hover:bg-green-50"
         }`}
       >
         Área
+      </button>
+      <button
+        onClick={() => setChartType("pie")}
+        className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+          chartType === "pie"
+            ? "bg-purple-100 text-purple-700 shadow"
+            : "bg-gray-100 text-gray-600 hover:bg-purple-50"
+        }`}
+      >
+        Torta
       </button>
     </div>
   );
@@ -163,12 +221,12 @@ export default function BusinessChart({ movements, period }: ChartProps) {
 
     const axisProps = {
       xAxis: <XAxis dataKey="name" />,
-      yAxis: <YAxis tickFormatter={formatCurrency} width={80} />,
+      yAxis: <YAxis tickFormatter={formatCurrency} width={90} />,
       cartesian: <CartesianGrid strokeDasharray="3 3" vertical={false} />,
       tooltip: (
         <Tooltip
-          formatter={(value: number) => [`$${value.toLocaleString()}`, undefined]}
-          labelFormatter={(label) => `Mes: ${label}`}
+          formatter={(value: number) => [formatCurrency(value), undefined]}
+          labelFormatter={(label) => period === "month" ? `Día: ${label}` : period === "today" ? `Hora: ${label}` : `Mes: ${label}`}
         />
       ),
       legend: <Legend />,
@@ -188,7 +246,7 @@ export default function BusinessChart({ movements, period }: ChartProps) {
               dataKey="ingresos"
               name="Ingresos"
               stroke="#38A169"
-              strokeWidth={2}
+              strokeWidth={3}
               dot={{ r: 4 }}
               activeDot={{ r: 6 }}
             />
@@ -196,14 +254,22 @@ export default function BusinessChart({ movements, period }: ChartProps) {
               type="monotone"
               dataKey="gastos"
               name="Gastos"
-              stroke="#E53E3E"
-              strokeWidth={2}
+              stroke="#3182CE"
+              strokeWidth={3}
               dot={{ r: 4 }}
               activeDot={{ r: 6 }}
             />
+            <Line
+              type="monotone"
+              dataKey="balance"
+              name="Balance"
+              stroke="#ECC94B"
+              strokeDasharray="5 5"
+              strokeWidth={2}
+              dot={false}
+            />
           </LineChart>
         );
-
       case "area":
         return (
           <AreaChart {...commonProps}>
@@ -224,13 +290,42 @@ export default function BusinessChart({ movements, period }: ChartProps) {
               type="monotone"
               dataKey="gastos"
               name="Gastos"
-              fill="#E53E3E33"
-              stroke="#E53E3E"
+              fill="#3182CE33"
+              stroke="#3182CE"
+              strokeWidth={2}
+            />
+            <Area
+              type="monotone"
+              dataKey="balance"
+              name="Balance"
+              fill="#ECC94B33"
+              stroke="#ECC94B"
               strokeWidth={2}
             />
           </AreaChart>
         );
-
+      case "pie":
+        return (
+          <PieChart width={400} height={320}>
+            <Tooltip formatter={(value: number) => [formatCurrency(value), undefined]} />
+            <Legend />
+            <Pie
+              data={pieData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={110}
+              innerRadius={60}
+              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+              labelLine={false}
+            >
+              {pieData.map((entry, idx) => (
+                <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        );
       case "bar":
       default:
         return (
@@ -244,13 +339,22 @@ export default function BusinessChart({ movements, period }: ChartProps) {
               dataKey="ingresos"
               name="Ingresos"
               fill="#38A169"
-              radius={[4, 4, 0, 0]}
+              radius={[6, 6, 0, 0]}
+              barSize={32}
             />
             <Bar
               dataKey="gastos"
               name="Gastos"
-              fill="#E53E3E"
-              radius={[4, 4, 0, 0]}
+              fill="#3182CE"
+              radius={[6, 6, 0, 0]}
+              barSize={32}
+            />
+            <Bar
+              dataKey="balance"
+              name="Balance"
+              fill="#ECC94B"
+              radius={[6, 6, 0, 0]}
+              barSize={32}
             />
           </BarChart>
         );
@@ -258,10 +362,10 @@ export default function BusinessChart({ movements, period }: ChartProps) {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col w-full">
       {renderChartTypeSelector()}
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 min-h-[320px] w-full">
+        <ResponsiveContainer width="100%" height="100%" minHeight={320}>
           {renderChart()}
         </ResponsiveContainer>
       </div>
