@@ -145,47 +145,10 @@ export default function BusinessDashboardPage() {
     fetchData();
   }, [businessId, filter, refreshTrigger]);
 
-  // Actualiza métricas en base a los movimientos actuales
-  const recalculateMetrics = (allMovements: Movement[]) => {
-    const ingresos = allMovements
-      .filter((m) => m.type === "ingreso")
-      .reduce((sum, m) => sum + m.amount, 0);
 
-    const gastos = allMovements
-      .filter((m) => m.type === "gasto")
-      .reduce((sum, m) => sum + m.amount, 0);
 
-    const rentabilidad = gastos !== 0
-      ? Math.round(((ingresos + gastos) / Math.abs(gastos)) * 100)
-      : 0;
+ 
 
-    setMetrics({ ingresos, gastos, rentabilidad });
-  };
-
-  // Agregar movimiento
-  const handleAddMovement = (newMovement: Movement) => {
-    setMovements((prev) => [newMovement, ...prev]);
-    setRecentMovements((prev) => [newMovement, ...prev].slice(0, 5));
-    recalculateMetrics([newMovement, ...movements]);
-  };
-
-  // Editar movimiento
-  const handleEditMovement = (updatedMovement: Movement) => {
-    const updatedMovements = movements.map((m) =>
-      m.id === updatedMovement.id ? updatedMovement : m
-    );
-    setMovements(updatedMovements);
-    setRecentMovements(updatedMovements.slice(0, 5));
-    recalculateMetrics(updatedMovements);
-  };
-
-  // Eliminar movimiento
-  const handleDeleteMovement = (id: string) => {
-    const updatedMovements = movements.filter((m) => m.id !== id);
-    setMovements(updatedMovements);
-    setRecentMovements(updatedMovements.slice(0, 5));
-    recalculateMetrics(updatedMovements);
-  };
 
   if (loading) {
     return (

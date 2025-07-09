@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users } from 'lucide-react';
-import CollaboratorCard from './CollaboratorCard';
 import InvitationCard from './InvitationCard';
 import InvitationModal from './InvitationModal';
 import { Plus } from 'lucide-react';
@@ -111,31 +109,7 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
         </Button>
       </div>
 
-      {/* Colaboradores Activos */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Users className="w-5 h-5 mr-2" />
-            Colaboradores Activos ({collaborators.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {collaborators.length === 0 ? (
-            <p className="text-gray-500">No hay colaboradores activos</p>
-          ) : (
-            <div className="space-y-4">
-              {collaborators.map((collaborator) => (
-                <CollaboratorCard 
-                  key={collaborator.id}
-                  collaborator={collaborator}
-                  onRemove={handleCollaboratorRemoved}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      
       {/* Invitaciones Pendientes */}
       {invitations.length > 0 && (
         <Card>
@@ -157,6 +131,44 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
           </CardContent>
         </Card>
       )}
+
+      {/* Lista de Colaboradores */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Colaboradores Activos ({collaborators.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {collaborators.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-gray-500">No hay colaboradores activos</p>
+              </div>
+            ) : (
+              <div>
+                {collaborators.map((collaborator) => (
+                  <div key={collaborator.id} className="p-4 border rounded-lg">
+                    <div className="flex justify-between">
+                      <div>
+                        <h3 className="font-semibold">{collaborator.user?.email}</h3>
+                        <p className="text-sm text-gray-600">{collaborator.role}</p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleCollaboratorRemoved()}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* AGREGAR EL MODAL */}
       <InvitationModal
