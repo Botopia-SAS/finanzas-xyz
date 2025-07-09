@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CountrySelector, countries, type Country } from "@/components/ui/country-selector";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -28,7 +29,9 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
-  const [dialCode, setDialCode] = useState("+57"); // ✅ Cambiar a Colombia por defecto
+  const [selectedCountry, setSelectedCountry] = useState<Country>(
+    countries.find(c => c.code === 'CO') || countries[0]
+  );
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +59,7 @@ export function SignUpForm({
 
       // ✅ Enviar PIN usando el número ingresado (aún necesario para el registro)
       await sendPinWhatsApp({
-        phone: `${dialCode}${phone}`,
+        phone: `${selectedCountry.dialCode}${phone}`,
         pin,
       });
 
@@ -106,8 +109,9 @@ export function SignUpForm({
       // ✅ PASO 3: Ahora actualizar el usuario con el teléfono
       const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         data: {
-          phone: `${dialCode}${phone}`,
-          dial_code: dialCode,
+          phone: `${selectedCountry.dialCode}${phone}`,
+          dial_code: selectedCountry.dialCode,
+          country_code: selectedCountry.code,
           raw_phone: phone
         }
       });
@@ -123,7 +127,7 @@ export function SignUpForm({
         .from("profiles")
         .insert([{
           id: userId,
-          phone: `${dialCode}${phone}`,
+          phone: `${selectedCountry.dialCode}${phone}`,
           created_at: new Date().toISOString()
         }]);
 
@@ -181,26 +185,14 @@ export function SignUpForm({
                   onChange={(e) => setRepeatPassword(e.target.value)}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="dialCode">Indicativo país</Label>
-                <Input
-                  id="dialCode"
-                  placeholder="+57"
-                  required
-                  value={dialCode}
-                  onChange={(e) => setDialCode(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Número de teléfono</Label>
-                <Input
-                  id="phone"
-                  placeholder="300 123 4567"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
+              
+              {/* Selector de país y número de teléfono */}
+              <CountrySelector
+                selectedCountry={selectedCountry}
+                onCountryChange={setSelectedCountry}
+                phoneNumber={phone}
+                onPhoneChange={setPhone}
+              />
               {error && <p className="text-sm text-red-500">{error}</p>}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Enviando código..." : "Continuar"}
@@ -223,7 +215,7 @@ export function SignUpForm({
             <h2 className="text-xl font-bold mb-4">Verificar tu número</h2>
             <p className="mb-4">
               Hemos enviado un PIN a tu WhatsApp{" "}
-              <span className="font-mono">{dialCode}{phone.substring(0, 3)}***</span>
+              <span className="font-mono">{selectedCountry.dialCode}{phone.substring(0, 3)}***</span>
             </p>
             <div className="mb-4">
               <Input
