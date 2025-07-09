@@ -79,9 +79,7 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
     loadInvitations();
   }, [loadCollaborators, loadInvitations]);
 
-  const handleCollaboratorRemoved = () => {
-    loadCollaborators();
-  };
+
 
   const handleInvitationCancelled = () => {
     loadInvitations();
@@ -132,7 +130,7 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
         </Card>
       )}
 
-      {/* Lista de Colaboradores */}
+      {/* Lista de Colaboradores Activos */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -140,33 +138,35 @@ export default function CollaboratorManager({ businessId, verticals }: Collabora
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {collaborators.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-500">No hay colaboradores activos</p>
-              </div>
-            ) : (
-              <div>
-                {collaborators.map((collaborator) => (
-                  <div key={collaborator.id} className="p-4 border rounded-lg">
-                    <div className="flex justify-between">
-                      <div>
-                        <h3 className="font-semibold">{collaborator.user?.email}</h3>
-                        <p className="text-sm text-gray-600">{collaborator.role}</p>
+          {collaborators.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p className="text-lg font-medium">No hay colaboradores activos</p>
+              <p className="text-sm">Invita a tu primer colaborador usando el botón de arriba</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {collaborators.map((collaborator) => (
+                <div 
+                  key={collaborator.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-1">
+                      <div className="w-10 h-10 bg-gradient-to-br from-[#fe8027] to-[#7dd1d6] rounded-full flex items-center justify-center text-white font-bold">
+                        {collaborator.user.email[0].toUpperCase()}
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="destructive"
-                        onClick={() => handleCollaboratorRemoved()}
-                      >
-                        Eliminar
-                      </Button>
+                      <div>
+                        <h3 className="font-semibold text-[#152241]">
+                          {collaborator.user.email}
+                        </h3>
+                        <p className="text-sm text-gray-600 capitalize">{collaborator.role}</p>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

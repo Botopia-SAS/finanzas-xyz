@@ -1,47 +1,74 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
+"use client";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import CollaboratorManager from "@/components/business/collaborators/CollaboratorManager";
-import BackButton from "@/components/BackButton";
-import CollaboratorsList from "@/components/business/collaborators/CollaboratorsList";
+import { useRouter, useParams } from "next/navigation";
 
-export default async function CollaboratorsPage({
-  params,
-}: {
-  params: Promise<{ businessId: string }>;
-}) {
-  const { businessId } = await params;
-  const supabase = await createClient();
+// Definir interfaces para los tipos
+// Eliminar la interfaz no utilizada
+// interface Business {
+//   owner_id: string;
+//   name: string;
+// }
 
-  // Verificar permisos
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+interface Vertical {
+  id: string;
+  name: string;
+}
 
-  const { data: business } = await supabase
-    .from("businesses")
-    .select("owner_id, name")
-    .eq("id", businessId)
-    .single();
+export default function CollaboratorsPage() {
+  const router = useRouter();
+  
+  // ✅ SOLUCIÓN: Usar useParams() en lugar de React.use()
+  const params = useParams();
+  const businessId = params.businessId as string;
+  
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const redirect = (path: string) => {
+      router.replace(path);
+    };
+    
+    const fetchData = async () => {
+      const supabase = createClient();
 
-  if (!business || business.owner_id !== user.id) {
-    redirect("/dashboard"); // Solo el dueño puede gestionar colaboradores
-  }
+      // Verificar permisos
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return redirect("/auth/login");
 
-  // Obtener verticales para el selector
-  const { data: verticals } = await supabase
-    .from("verticals")
-    .select("id, name")
-    .eq("business_id", businessId)
-    .eq("active", true);
+      const { data: businessData } = await supabase
+        .from("businesses")
+        .select("owner_id, name")
+        .eq("id", businessId)
+        .single();
+
+      if (!businessData || businessData.owner_id !== user.id) {
+        return redirect("/dashboard"); // Solo el dueño puede gestionar colaboradores
+      }
+
+      // Obtener verticales para el selector
+      const { data: verticalsData } = await supabase
+        .from("verticals")
+        .select("id, name")
+        .eq("business_id", businessId)
+        .eq("active", true);
+
+      setVerticals(verticalsData || []);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [businessId, router]); // ✅ Incluir router como dependencia
 
   return (
-    <DashboardLayout>
-      <BackButton />
-      <CollaboratorManager 
-        businessId={businessId} 
-        verticals={verticals || []}
-      />
-      <CollaboratorsList businessId={businessId} />
-    </DashboardLayout>
+    <div className="container mx-auto py-6">
+      {loading ? (
+        <div>Cargando...</div>
+      ) : (
+        <CollaboratorManager businessId={businessId} verticals={verticals} />
+      )}
+    </div>
   );
 }
