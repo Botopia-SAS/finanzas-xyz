@@ -139,7 +139,7 @@ export default function DairyVertical({
           ].map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key as any)}
+              onClick={() => setTab(t.key as "overview" | "cows" | "milk")}
               className={`pb-2 text-lg font-medium transition-colors ${
                 tab === t.key
                   ? "border-b-2 border-indigo-600 text-indigo-600"
