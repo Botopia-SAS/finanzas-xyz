@@ -60,7 +60,7 @@ export default function DairyVertical({
       const ids = (cvData as { cow_id: string }[]).map((r) => r.cow_id);
       if (ids.length > 0) {
         const { data: cowsData, error: cowsErr } = await supabase
-          .from("livestock.cows")
+          .from("cows")
           .select("id,business_id,tag,name,birth_date")
           .in("id", ids);
 
@@ -83,7 +83,7 @@ export default function DairyVertical({
         .split("T")[0];
 
       const { data: mrData, error: mrErr } = await supabase
-        .from("livestock.milk_records")
+        .from("milk_records")
         .select("date,liters")
         .gte("date", since)
         .order("date", { ascending: true });
@@ -104,7 +104,7 @@ export default function DairyVertical({
     const name = prompt("Nombre de la vaca (opcional):") || null;
 
     const { data: newCowData, error: cowErr } = await supabase
-      .from("livestock.cows")
+      .from("cows")
       .insert([{ business_id: businessId, tag, name }])
       .select("id,business_id,tag,name,birth_date")
       .single();

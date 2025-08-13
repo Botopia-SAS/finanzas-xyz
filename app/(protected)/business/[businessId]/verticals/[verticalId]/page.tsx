@@ -4,7 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import VerticalDetail from "@/components/verticals/verticalDetail/VerticalDetail";
-import DairyVertical from "@/components/verticals/verticalDetail/DairyVertical";
+import VerticalDetailWrapper from "@/components/verticals/verticalDetail/VerticalDetailWrapper";
 
 export default function VerticalDetailPage({
   params,
@@ -29,27 +29,26 @@ export default function VerticalDetailPage({
   }, [verticalId]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow p-6 mb-8">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" /> Volver a Verticales
-        </button>
-
-        {vert ? (
-          vert.name === "Lechería" ? (
-            <DairyVertical
-              businessId={businessId}
-              verticalId={verticalId}
-            />
-          ) : (
-            <VerticalDetail verticalId={verticalId} />
-          )
-        ) : (
-          <p>Cargando detalle…</p>
-        )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="w-full max-w-none">
+        {/* Main Content */}
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="max-w-none mx-auto">
+            {vert ? (
+              <VerticalDetailWrapper
+                businessId={businessId}
+                verticalId={verticalId}
+              />
+            ) : (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Cargando detalle…</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

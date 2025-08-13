@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import VerticalCard from "./VerticalCard";
-import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import DeleteVerticalModal from "./DeleteVerticalModal";
 import { useVerticals } from "./hooks/useVerticals";
 
 interface VerticalsListProps {
@@ -76,9 +76,10 @@ export default function VerticalsList({ businessId, refreshTrigger }: VerticalsL
         ))}
       </div>
 
-      <ConfirmDeleteModal
+      <DeleteVerticalModal
         isOpen={deleteModal.isOpen}
         onClose={handleCloseModal}
+        verticalId={deleteModal.verticalId}
         verticalName={deleteModal.verticalName}
         onConfirm={handleConfirmDelete}
       />
